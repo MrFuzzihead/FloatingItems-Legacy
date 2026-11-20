@@ -34,8 +34,8 @@ Current verification baseline:
 ```text
 ./gradlew check                     PASS  (unit tests + Spotless + Checkstyle + JaCoCo floor + gameTest compile)
 ./gradlew gameTestServer            PASS  11/11 checks, no known bugs remain
-Unit tests                          81 executed, no skipped tests
-JaCoCo (unit run)                   line 483/561 = 86.1%, branch 266/350 = 76.0%
+Unit tests                          82 executed, no skipped tests
+JaCoCo (unit run)                   line 482/559 = 86.2%, branch 266/350 = 76.0%
 ```
 
 The game test has no xfails and the unit suite has no skipped tests.
@@ -200,11 +200,11 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | **R-04** | Replace the 1,024-line `FILang` chain with a data table loaded from `assets/floatingitems/lang/*.lang` (or a `Map` constant). Keep the server-side selection mechanism. | **Applied in the P2 pass:** UTF-8 `.lang` resources + alias map; B-11/B-13/B-16 fixed and the Java table is gone. |
 | **R-05** | Wrap the update check in an async service with timeouts and a small result object; build chat components from a real translation key + siblings, not a full sentence used as a key. | Fixes the startup stall, the null message and the fragile `ChatComponentTranslation` usage. |
 | **R-06** | Register the event handler on `FMLCommonHandler.instance().bus()` (or both buses) and add a test that posts the event. | **Applied in the P0 pass:** the handler is on the FML bus and the game test posts the event. |
-| **R-07** | Use a mod-specific `Logger` (`LogManager.getLogger(FIReference.MOD_ID)`) instead of `System.out`, `printStackTrace` and `FMLRelaunchLog` for normal messages. | Actionable logs with the mod name. |
+| **R-07** | Use a mod-specific `Logger` (`LogManager.getLogger(FIReference.MOD_ID)`) instead of `System.out`, `printStackTrace` and `FMLRelaunchLog` for normal messages. | **Applied in this batch:** `FIConfig` and `FIUpdateHandler` use the mod logger; test-only markers remain in the game-test mod. |
 | **R-08** | Use `isInWater()`/`handleMaterialAcceleration` and a floored block position; optionally query the block at the entity's bounding-box centre and below. | **Applied in the P1 pass:** `World.isMaterialInBB` over the bounding box fixes B-08/B-17/B-21. |
 | **R-09** | Move the inject from `HEAD` to after vanilla's `onEntityItemUpdate` check (or use a `@Redirect`/`@ModifyVariable` on the hook call) so the hook is called exactly once. | **Applied in the P1 pass:** a `@Redirect` wraps the single vanilla call and preserves its early return. |
 | **R-10** | Remove `CoreMod` (D-01, done) and other dead items, while keeping the manifest-required empty late config (D-08) and public compatibility shims. | Smaller jar without breaking addons or the mixin manifest. |
-| **R-11** | Add `@SideOnly(Side.CLIENT)` to `FIConfigGUI`/inner class and move GUI-only code to a client package if the package rename is acceptable. | Prevents accidental server-side class loading and makes the client boundary explicit. |
+| **R-11** | Add `@SideOnly(Side.CLIENT)` to `FIConfigGUI`/inner class and move GUI-only code to a client package if the package rename is acceptable. | **Applied:** both GUI classes are client-only; the inner class is annotated as well. |
 | **R-12** | Add a public API (`FloatingItemsAPI`/`IFloatingItem`) if addons are expected to customise floating. Keep the current static config accessors deprecated. | The README advertises addons; a stable API avoids addons reaching into `FIConfig` arrays. |
 | **R-13** | Rename the root package from `net.coolsimulations.FloatingItems` to `net.coolsimulations.floatingitems` (or add a compatibility facade). | Java package convention; this is a breaking change for addons, so schedule it with R-12. |
 | **R-14** | Add `hashCode`, use `Objects.equals`, and make `FIConfigItem` immutable. | **Applied for B-05/B-24:** registry/metadata are final and `equals`/`hashCode` match. |
@@ -266,7 +266,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 |---|---|
 | `addon.gradle.kts` | Applies JaCoCo, configures `Test` on a Java 8 toolchain, extends the test classpaths with `compileOnly` (Minecraft/Forge), creates `build/reports/jacoco/test`, enforces a line/branch floor, creates the `gameTest` source set, and registers `prepareGameTestServer`/`gameTestServer`/`jacocoGameTestReport`. |
 | `dependencies.gradle` | JUnit 4.13.2, Mockito 4.11.0, mockito-inline. Mockito 4 is the newest line that runs on Java 8; mockito-inline allows final Minecraft classes to be mocked. |
-| `src/test/java/...` | 8 test classes / 81 tests (no `@Ignore` markers). |
+| `src/test/java/...` | 8 test classes / 82 tests (no `@Ignore` markers). |
 | `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus a 5-phase assertion suite. |
 | `.github/workflows/game-test.yml` | Installs Java 8 + 25, runs `./gradlew test gameTestServer`, checks the `FLOATINGITEMS_GAMETEST_OK` marker, uploads the server log and coverage. |
 | `README.md` | Testing commands and the remaining P3 marker policy. |
@@ -278,7 +278,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | `FILangTest` | Every supported locale × every update/config key; placeholder preservation; aliases; fallback for null/unknown language; case-insensitivity; constructed keys; Chinese ASCII placeholders; Turkish-locale safety; no skipped tests. |
 | `FIConfigTest` | Defaults, logical property order, legacy and registry-name parsing, wildcard metadata, malformed/unknown entries, deferred resolution, all-invalid/backend-failure fallbacks, immutable snapshot, per-snapshot decision cache/empty fast path, equality/hash. |
 | `FIReferenceTest` | Mod id/name/version injection, accepted MC range, Forge + UniMixins dependencies, config file/category names. |
-| `FloatingItemsMetadataTest` | Reads the `@Mod` annotation and the shipped `mcmod.info` back, checks the GUI factory class name and the UniMixins requirement. |
+| `FloatingItemsMetadataTest` | Reads the `@Mod` annotation and the shipped `mcmod.info` back, checks the GUI factory class name, its `@SideOnly(CLIENT)` marker and the UniMixins requirement. |
 | `MixinsTest` | One early mixin named `EntityItemMixin`, phase EARLY, early config path. |
 | `FloatingItemPolicyTest` | Blacklist short-circuit, null stack/item, water bounding-box contraction, null world/box, and buoyancy arithmetic directly through `FloatingItemPolicy`. |
 | `FIUpdateHandlerTest` | System-property/config opt-outs, current/older/ended/null version branches, and GitHub `releases/latest` redirect parsing (relative/absolute/encoded/error) against a local `HttpServer`. |
@@ -316,9 +316,9 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 - In-game report: `build/reports/jacoco/gameTest/html`, generated after `gameTestServer` via
   `jacocoGameTestReport`. The JaCoCo agent is run with `classdumpdir=build/jacoco/gameTestClasses`, so the report
   reads exactly the bytes the agent instrumented. It is not merged into the unit report because a Forge 1.7.10
-  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 208/509 lines (40.9%)
+  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 210/507 lines (41.4%)
   and 84/326 branches (25.8%)
-- Regression floor: 65% line / 70% branch. The measured unit baseline is 86.1% line / 76.0% branch. The floor is a
+- Regression floor: 65% line / 70% branch. The measured unit baseline is 86.2% line / 76.0% branch. The floor is a
   guard, not a target; the mixin remains largely uncovered, and the update handler is covered by
   its opt-out/result/HTTP branches but not by a live network check.
 
@@ -363,7 +363,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 is also co
 ### P3 — cleanup / features (cleanup done; feature backlog remains)
 
 14. D-03/D-09/D-11/D-12/D-15 cleanup done; D-08 intentionally kept; D-02/D-04/D-05 retained as deprecated public API shims.
-15. R-01/R-02/R-03/R-04/R-06/R-08/R-09/R-14/R-15 are applied. R-05 (update service), R-07 (logger), R-11 (client split), R-12 (API package) and R-13 (root package) remain.
+15. R-01/R-02/R-03/R-04/R-06/R-07/R-08/R-09/R-11/R-14/R-15 are applied. R-05 (update service/result object) and R-12/R-13 (API/package moves) remain.
 16. F-01 is applied (registry names + wildcard metadata). F-02…F-17 remain, in particular whitelist mode, per-player locale and the public API.
 
 ---
@@ -424,15 +424,15 @@ All paths are under `build/rfg/minecraft-src/java` (RFG-decompiled 1.7.10 source
 
 | Measurement | Value |
 |---|---|
-| Unit tests | 81 run, 0 skipped, 0 failures |
+| Unit tests | 82 run, 0 skipped, 0 failures |
 | Game-test phases | 5 phases × 120 ticks, plus the synchronous config-bus check |
 | Game-test assertions | 11 checks; no known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
 | Game-test run time | ~47 s on the development machine (including Forge startup) |
-| JaCoCo unit line | 483/561 = 86.1% |
+| JaCoCo unit line | 482/559 = 86.2% |
 | JaCoCo unit branch | 266/350 = 76.0% |
-| JaCoCo unit instruction | 1,995/2,253 = 88.5% |
+| JaCoCo unit instruction | 1,984/2,235 = 88.8% |
 | JaCoCo floor | 65% line / 70% branch |
-| JaCoCo game-test run | 208/509 lines = 40.9%, 84/326 branches = 25.8% (short physics-only run) |
+| JaCoCo game-test run | 210/507 lines = 41.4%, 84/326 branches = 25.8% (short physics-only run) |
 | Test JVM | Java 8 toolchain (Temurin 8.0.432) |
 
 The game test prints per-phase Y values (`waterY`, `airY`, `lavaY`, `negativeY`) and the observed

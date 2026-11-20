@@ -13,11 +13,12 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraftforge.common.MinecraftForge;
 
-import org.apache.logging.log4j.Level;
-
-import cpw.mods.fml.relauncher.FMLRelaunchLog;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class FIUpdateHandler {
+
+    private static final Logger LOGGER = LogManager.getLogger(FIReference.MOD_ID);
 
     private static final String RELEASES_URL = "https://github.com/MrFuzzihead/FloatingItems-Legacy/releases/latest";
     private static final String MOD_URL = RELEASES_URL;
@@ -67,7 +68,7 @@ public class FIUpdateHandler {
 
             processUpdateData(latestVersion, null);
         } catch (Throwable t) {
-            FMLRelaunchLog.log(FIReference.MOD_NAME, Level.WARN, t, "Unexpected update-check failure");
+            LOGGER.warn("Unexpected update-check failure", t);
         }
     }
 
@@ -336,8 +337,7 @@ public class FIUpdateHandler {
 
             return releaseTag(new URL(url, redirect));
         } catch (Exception e) {
-            FMLRelaunchLog
-                .log(FIReference.MOD_NAME, Level.WARN, "Could not read the latest release from " + location + ": " + e);
+            LOGGER.warn("Could not read the latest release from {}", location, e);
             return null;
         } finally {
             if (connection != null) {

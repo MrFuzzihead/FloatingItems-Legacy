@@ -10,6 +10,8 @@ import java.util.Scanner;
 import org.junit.Test;
 
 import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * Reads the {@link Mod} annotation back, so a change to the mod id, version or GUI factory cannot drift away from
@@ -37,6 +39,14 @@ public class FloatingItemsMetadataTest {
         // Match the requiredMods array even if the JSON is reformatted; the dependency must be visible to FML and
         // to any tooling that reads mcmod.info before the @Mod annotation is processed.
         assertTrue(json.matches("(?s).*\"requiredMods\"\\s*:\\s*\\[\\s*\"unimixins\"\\s*\\].*"));
+    }
+
+    @Test
+    public void guiFactoryIsMarkedClientOnly() {
+        SideOnly sideOnly = FIConfigGUI.class.getAnnotation(SideOnly.class);
+
+        assertNotNull(sideOnly);
+        assertEquals(Side.CLIENT, sideOnly.value());
     }
 
     @Test

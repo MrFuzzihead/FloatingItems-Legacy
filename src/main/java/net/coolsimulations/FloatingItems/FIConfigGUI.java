@@ -7,9 +7,13 @@ import net.minecraft.client.gui.GuiScreen;
 
 import cpw.mods.fml.client.IModGuiFactory;
 import cpw.mods.fml.client.config.GuiConfig;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
+@SideOnly(Side.CLIENT)
 public class FIConfigGUI implements IModGuiFactory {
 
+    @SideOnly(Side.CLIENT)
     public static class FIConfigGUIInner extends GuiConfig {
 
         public FIConfigGUIInner(GuiScreen parent) {

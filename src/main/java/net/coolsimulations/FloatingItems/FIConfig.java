@@ -19,12 +19,14 @@ import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 import net.minecraftforge.oredict.OreDictionary;
 
-import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import cpw.mods.fml.client.config.IConfigElement;
-import cpw.mods.fml.relauncher.FMLRelaunchLog;
 
 public class FIConfig {
+
+    private static final Logger LOGGER = LogManager.getLogger(FIReference.MOD_ID);
 
     static Configuration config;
 
@@ -76,8 +78,7 @@ public class FIConfig {
             for (String entry : prop.getStringList()) {
                 FIConfigItem parsed = FIConfigItem.parse(entry);
                 if (parsed == null) {
-                    FMLRelaunchLog
-                        .log(FIReference.MOD_NAME, Level.WARN, "Ignoring invalid item blacklist entry: " + entry);
+                    LOGGER.warn("Ignoring invalid item blacklist entry: {}", entry);
                 } else {
                     itemBlacklist.add(parsed);
                 }
@@ -131,11 +132,7 @@ public class FIConfig {
             config.save();
 
         } catch (final Exception e) {
-            FMLRelaunchLog.log(
-                FIReference.MOD_NAME,
-                Level.ERROR,
-                ("Problem loading FloatingItems config (\"FloatingItems.conf\")"));
-            FMLRelaunchLog.log(FIReference.MOD_NAME, Level.ERROR, e.toString());
+            LOGGER.error("Problem loading FloatingItems config (FloatingItems.conf)", e);
             // Do not leave half-updated static state behind. If the config backend itself fails, run with safe
             // defaults until the next successful sync.
             blacklist = Blacklist.empty();
@@ -163,8 +160,7 @@ public class FIConfig {
                 continue;
             }
             if (item.getItem() == null) {
-                FMLRelaunchLog
-                    .log(FIReference.MOD_NAME, Level.WARN, "Ignoring blacklist entry for unregistered item: " + item);
+                LOGGER.warn("Ignoring blacklist entry for unregistered item: {}", item);
             } else {
                 resolved.add(item);
             }
