@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -27,6 +28,7 @@ public class FIUpdateHandlerTest {
     public void reset() {
         System.clearProperty("floatingitems.skipUpdateCheck");
         FIConfig.disableUpdateCheck = false;
+        FIConfig.serverLang = "en_us";
         FIUpdateHandler.isOld = false;
         FIUpdateHandler.updateInfo = null;
         FIUpdateHandler.updateVersionInfo = null;
@@ -52,6 +54,34 @@ public class FIUpdateHandlerTest {
         assertFalse(FIUpdateHandler.isOld);
         assertNull(FIUpdateHandler.updateInfo);
         assertNull(FIUpdateHandler.updateVersionInfo);
+    }
+
+    @Test
+    public void resultObjectNoneClearsPreviousState() {
+        FIUpdateHandler.processUpdateData("0.0.0-test", "notes");
+        assertTrue(FIUpdateHandler.isOld);
+
+        FIUpdateHandler.processResult(UpdateCheckResult.NONE);
+
+        assertFalse(FIUpdateHandler.isOld);
+        assertNull(FIUpdateHandler.updateInfo);
+        assertNull(FIUpdateHandler.updateVersionInfo);
+    }
+
+    @Test
+    public void localizedComponentContainsTheFormattedArguments() {
+        FIUpdateHandler.processUpdateData("0.0.0-test", "notes");
+
+        String text = FIUpdateHandler.updateInfo.getUnformattedText();
+        assertTrue(text.contains("0.0.0-test"));
+        assertFalse(text.contains("floatingitems.update.display1"));
+    }
+
+    @Test
+    public void serviceFetchHonorsTheSkipProperty() {
+        System.setProperty("floatingitems.skipUpdateCheck", "true");
+
+        assertSame(UpdateCheckResult.NONE, UpdateCheckService.fetch());
     }
 
     @Test
