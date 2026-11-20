@@ -7,6 +7,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.Collections;
+
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
@@ -27,7 +29,7 @@ public class FloatingItemsEventTest {
     @Before
     @After
     public void reset() {
-        FIConfig.blacklistItems = null;
+        FIConfig.blacklist = FIConfig.Blacklist.empty();
         FIConfig.disableUpdateCheck = false;
         FIUpdateHandler.isOld = false;
         FIUpdateHandler.updateInfo = null;
@@ -36,11 +38,17 @@ public class FloatingItemsEventTest {
 
     @Test
     public void postInitDropsUnresolvedBlacklistItems() {
-        FIConfig.blacklistItems = new FIConfig.FIConfigItem[] { new FIConfig.FIConfigItem("{99999}(0)") };
+        FIConfig.blacklist = new FIConfig.Blacklist(
+            Collections.singletonList(new FIConfig.FIConfigItem("{99999}(0)")),
+            Collections.<Integer>emptySet(),
+            Collections.<String>emptyList());
 
         new FloatingItems().postInit(null);
 
-        assertEquals(0, FIConfig.blacklistItems.length);
+        assertEquals(
+            0,
+            FIConfig.blacklist.getItems()
+                .size());
     }
 
     @Test

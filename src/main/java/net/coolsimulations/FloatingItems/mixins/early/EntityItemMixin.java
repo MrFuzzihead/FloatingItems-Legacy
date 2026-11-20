@@ -1,15 +1,11 @@
 package net.coolsimulations.FloatingItems.mixins.early;
 
-import java.util.List;
-
 import net.coolsimulations.FloatingItems.FIConfig;
-import net.coolsimulations.FloatingItems.FIConfig.FIConfigItem;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.oredict.OreDictionary;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -45,7 +41,7 @@ public abstract class EntityItemMixin {
         if (stack == null || stack.getItem() == null) {
             return;
         }
-        if (isBlacklisted(stack)) {
+        if (FIConfig.blacklist != null && FIConfig.blacklist.isBlacklisted(stack)) {
             return;
         }
         if (!isInWater(entityItem)) {
@@ -54,61 +50,6 @@ public abstract class EntityItemMixin {
 
         setUnderWaterMovement(entityItem);
         entityItem.motionY += 0.03999999910593033D;
-    }
-
-    /**
-     * Checks the three blacklists independently. A per-metadata mismatch must not disable the registry or
-     * ore-dictionary checks (B-07).
-     */
-    @Unique
-    private static boolean isBlacklisted(ItemStack stack) {
-
-        Item item = stack.getItem();
-        int meta = stack.getItemDamage();
-
-        FIConfigItem[] itemBlacklist = FIConfig.blacklistItems;
-        if (itemBlacklist != null) {
-            for (FIConfigItem entry : itemBlacklist) {
-                if (entry == null || entry.getItem() == null) {
-                    continue;
-                }
-                if (entry.getItem() == item && entry.getMeta() == meta) {
-                    return true;
-                }
-            }
-        }
-
-        int[] registryBlacklist = FIConfig.blacklistRegistryItems;
-        if (registryBlacklist != null) {
-            int id = Item.getIdFromItem(item);
-            for (int entry : registryBlacklist) {
-                if (entry == id) {
-                    return true;
-                }
-            }
-        }
-
-        String[] oreBlacklist = FIConfig.blacklistOreDict;
-        if (oreBlacklist != null) {
-            for (String entry : oreBlacklist) {
-                if (entry == null) {
-                    continue;
-                }
-
-                String oreName = entry.replaceAll("[^A-Za-z0-9 ]", "");
-                List<ItemStack> ores = OreDictionary.getOres(oreName);
-                for (ItemStack oreStack : ores) {
-                    if (oreStack == null || oreStack.getItem() == null) {
-                        continue;
-                    }
-                    if (oreStack.getItem() == item && oreStack.getItemDamage() == meta) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
     }
 
     /**

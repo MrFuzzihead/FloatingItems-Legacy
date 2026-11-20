@@ -1,6 +1,5 @@
 package net.coolsimulations.FloatingItems;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -14,6 +13,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 
 import net.coolsimulations.FloatingItems.testutil.MinecraftTestBootstrap;
@@ -24,7 +26,6 @@ import net.minecraftforge.common.config.Configuration;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -32,13 +33,7 @@ import org.junit.rules.TemporaryFolder;
 import cpw.mods.fml.client.config.IConfigElement;
 
 /**
- * Tests for the config file contract and for {@link FIConfig.FIConfigItem}.
- *
- * <p>
- * The config parser is the mod's only real input surface, and the mixin runs it on every item every tick. These
- * tests pin the on-disk format ({@code {id}(meta)}), the default values, the exact property names shown in the GUI,
- * and the failure modes that the analysis calls out.
- * </p>
+ * Tests for the config file contract, the immutable blacklist snapshot and {@link FIConfig.FIConfigItem}.
  */
 public class FIConfigTest {
 
@@ -58,9 +53,7 @@ public class FIConfigTest {
 
     @Before
     public void resetConfigState() {
-        FIConfig.blacklistItems = null;
-        FIConfig.blacklistRegistryItems = null;
-        FIConfig.blacklistOreDict = null;
+        FIConfig.blacklist = FIConfig.Blacklist.empty();
         FIConfig.serverLang = null;
         FIConfig.disableUpdateCheck = false;
         FIConfig.config = null;
@@ -68,12 +61,7 @@ public class FIConfigTest {
 
     @After
     public void clearConfigState() {
-        FIConfig.blacklistItems = null;
-        FIConfig.blacklistRegistryItems = null;
-        FIConfig.blacklistOreDict = null;
-        FIConfig.serverLang = null;
-        FIConfig.disableUpdateCheck = false;
-        FIConfig.config = null;
+        resetConfigState();
     }
 
     @Test
@@ -82,34 +70,37 @@ public class FIConfigTest {
         FIConfig.init(file);
 
         assertTrue(file.exists());
-        assertNotNull(FIConfig.blacklistItems);
-        assertEquals(0, FIConfig.blacklistItems.length);
-        assertNotNull(FIConfig.blacklistRegistryItems);
-        assertEquals(0, FIConfig.blacklistRegistryItems.length);
-        assertNotNull(FIConfig.blacklistOreDict);
-        assertEquals(0, FIConfig.blacklistOreDict.length);
+        assertNotNull(FIConfig.blacklist);
+        assertEquals(
+            0,
+            FIConfig.blacklist.getItems()
+                .size());
+        assertEquals(
+            0,
+            FIConfig.blacklist.getRegistryItems()
+                .size());
+        assertEquals(
+            0,
+            FIConfig.blacklist.getOreDict()
+                .size());
         assertEquals("en_us", FIConfig.serverLang);
         assertFalse(FIConfig.disableUpdateCheck);
     }
 
     @Test
-    public void allPropertiesAreExposedToTheConfigGui() throws Exception {
+    public void allPropertiesAreExposedToTheConfigGuiInTheConfiguredOrder() throws Exception {
         FIConfig.init(configFile());
 
         List<IConfigElement> elements = FIConfig.getConfigElements();
         assertEquals(5, elements.size());
 
-        java.util.Set<String> names = new java.util.HashSet<String>();
+        List<String> names = new java.util.ArrayList<String>();
         for (IConfigElement element : elements) {
             names.add(element.getName());
         }
-        // The order is not asserted: FIConfig builds `propOrder` but never calls setCategoryPropertyOrder, so the
-        // GUI receives the Configuration's default (alphabetical) order. See CODEBASE_ANALYSIS.md D-03.
-        assertTrue(names.contains(ITEM_BLACKLIST));
-        assertTrue(names.contains(REGISTRY_BLACKLIST));
-        assertTrue(names.contains(OREDICT_BLACKLIST));
-        assertTrue(names.contains(SERVER_LANGUAGE));
-        assertTrue(names.contains(DISABLE_UPDATE_CHECK));
+        assertEquals(
+            Arrays.asList(ITEM_BLACKLIST, REGISTRY_BLACKLIST, OREDICT_BLACKLIST, SERVER_LANGUAGE, DISABLE_UPDATE_CHECK),
+            names);
     }
 
     @Test
@@ -117,8 +108,12 @@ public class FIConfigTest {
         writeConfig(new String[] { "{280}(0)", "{280}(3)" }, new int[0], new String[0], "en_us", false);
         FIConfig.init(configFile());
 
-        assertEquals(2, FIConfig.blacklistItems.length);
-        FIConfig.FIConfigItem first = FIConfig.blacklistItems[0];
+        assertEquals(
+            2,
+            FIConfig.blacklist.getItems()
+                .size());
+        FIConfig.FIConfigItem first = FIConfig.blacklist.getItems()
+            .get(0);
         assertSame(MinecraftTestBootstrap.stick(), first.getItem());
         assertEquals(0, first.getMeta());
         assertEquals(280, first.getRegistry());
@@ -131,9 +126,20 @@ public class FIConfigTest {
         writeConfig(new String[] { "{ 280 } ( 3 )" }, new int[0], new String[0], "en_us", false);
         FIConfig.init(configFile());
 
-        assertEquals(1, FIConfig.blacklistItems.length);
-        assertEquals(280, FIConfig.blacklistItems[0].getRegistry());
-        assertEquals(3, FIConfig.blacklistItems[0].getMeta());
+        assertEquals(
+            1,
+            FIConfig.blacklist.getItems()
+                .size());
+        assertEquals(
+            280,
+            FIConfig.blacklist.getItems()
+                .get(0)
+                .getRegistry());
+        assertEquals(
+            3,
+            FIConfig.blacklist.getItems()
+                .get(0)
+                .getMeta());
     }
 
     @Test
@@ -141,8 +147,10 @@ public class FIConfigTest {
         writeConfig(new String[0], new int[] { 280, 4 }, new String[] { "ingotCopper", "dustTinyGold" }, "de_de", true);
         FIConfig.init(configFile());
 
-        assertArrayEquals(new int[] { 280, 4 }, FIConfig.blacklistRegistryItems);
-        assertArrayEquals(new String[] { "ingotCopper", "dustTinyGold" }, FIConfig.blacklistOreDict);
+        assertEquals(new HashSet<Integer>(Arrays.asList(280, 4)), FIConfig.blacklist.getRegistryItems());
+        assertEquals(
+            new HashSet<String>(Arrays.asList("ingotCopper", "dustTinyGold")),
+            FIConfig.blacklist.getOreDict());
         assertEquals("de_de", FIConfig.serverLang);
         assertTrue(FIConfig.disableUpdateCheck);
     }
@@ -155,8 +163,15 @@ public class FIConfigTest {
 
         FIConfig.syncConfig(false);
 
-        assertEquals(1, FIConfig.blacklistItems.length);
-        assertEquals(1, FIConfig.blacklistItems[0].getMeta());
+        assertEquals(
+            1,
+            FIConfig.blacklist.getItems()
+                .size());
+        assertEquals(
+            1,
+            FIConfig.blacklist.getItems()
+                .get(0)
+                .getMeta());
     }
 
     @Test
@@ -168,8 +183,7 @@ public class FIConfigTest {
 
         FIConfig.forceSave();
 
-        String contents = read(file);
-        assertTrue(contents.contains("fr_fr"));
+        assertTrue(read(file).contains("fr_fr"));
     }
 
     @Test
@@ -205,7 +219,7 @@ public class FIConfigTest {
     }
 
     @Test
-    public void equalsIsReflexiveSymmetricAndTypeSafe() {
+    public void equalsIsReflexiveSymmetricTypeSafeAndHashCompatible() {
         FIConfig.FIConfigItem stick0 = new FIConfig.FIConfigItem("{280}(0)");
         FIConfig.FIConfigItem stick0Again = new FIConfig.FIConfigItem("{280}(0)");
         FIConfig.FIConfigItem stick1 = new FIConfig.FIConfigItem("{280}(1)");
@@ -213,18 +227,10 @@ public class FIConfigTest {
         assertEquals(stick0, stick0);
         assertEquals(stick0, stick0Again);
         assertEquals(stick0Again, stick0);
+        assertEquals(stick0.hashCode(), stick0Again.hashCode());
         assertFalse(stick0.equals(stick1));
         assertFalse(stick0.equals(null));
         assertFalse(stick0.equals("not a config item"));
-    }
-
-    @Test
-    @Ignore("Known bug CODEBASE_ANALYSIS.md B-05: FIConfigItem overrides equals but not hashCode")
-    public void equalItemsHaveEqualHashCodes() {
-        FIConfig.FIConfigItem first = new FIConfig.FIConfigItem("{280}(0)");
-        FIConfig.FIConfigItem second = new FIConfig.FIConfigItem("{280}(0)");
-        assertEquals(first, second);
-        assertEquals(first.hashCode(), second.hashCode());
     }
 
     @Test
@@ -240,21 +246,40 @@ public class FIConfigTest {
 
         assertEquals("de_de", FIConfig.serverLang);
         assertTrue(FIConfig.disableUpdateCheck);
-        assertEquals(2, FIConfig.blacklistItems.length);
-        assertEquals(0, FIConfig.blacklistItems[0].getMeta());
-        assertEquals(2, FIConfig.blacklistItems[1].getMeta());
-        assertArrayEquals(new int[] { 280 }, FIConfig.blacklistRegistryItems);
-        assertArrayEquals(new String[] { "ingotCopper" }, FIConfig.blacklistOreDict);
+        assertEquals(
+            2,
+            FIConfig.blacklist.getItems()
+                .size());
+        assertEquals(
+            0,
+            FIConfig.blacklist.getItems()
+                .get(0)
+                .getMeta());
+        assertEquals(
+            2,
+            FIConfig.blacklist.getItems()
+                .get(1)
+                .getMeta());
+        assertEquals(Collections.singleton(280), FIConfig.blacklist.getRegistryItems());
+        assertEquals(Collections.singleton("ingotCopper"), FIConfig.blacklist.getOreDict());
     }
 
     @Test
-    public void unknownItemIdIsRejectedInsteadOfCreatingANullItemEntry() throws Exception {
+    public void unknownItemIdIsRemovedAfterResolution() throws Exception {
         writeConfig(new String[] { "{99999}(0)" }, new int[0], new String[0], "en_us", false);
 
         FIConfig.init(configFile());
+        assertEquals(
+            1,
+            FIConfig.blacklist.getItems()
+                .size());
+
         FIConfig.resolveItems();
 
-        assertEquals(0, FIConfig.blacklistItems.length);
+        assertEquals(
+            0,
+            FIConfig.blacklist.getItems()
+                .size());
     }
 
     @Test
@@ -263,12 +288,19 @@ public class FIConfigTest {
 
         FIConfig.init(configFile());
 
-        assertEquals(1, FIConfig.blacklistItems.length);
-        assertEquals(0, FIConfig.blacklistItems[0].getMeta());
+        assertEquals(
+            1,
+            FIConfig.blacklist.getItems()
+                .size());
+        assertEquals(
+            0,
+            FIConfig.blacklist.getItems()
+                .get(0)
+                .getMeta());
     }
 
     @Test
-    public void allInvalidEntriesLeaveEmptyBlacklistsButKeepOtherProperties() throws Exception {
+    public void allInvalidEntriesLeaveEmptyItemBlacklistsButKeepOtherProperties() throws Exception {
         writeConfig(
             new String[] { "garbage", "{99999}(0)", "{280}(" },
             new int[] { 280 },
@@ -279,10 +311,13 @@ public class FIConfigTest {
         FIConfig.init(configFile());
         FIConfig.resolveItems();
 
-        assertNotNull(FIConfig.blacklistItems);
-        assertEquals(0, FIConfig.blacklistItems.length);
-        assertArrayEquals(new int[] { 280 }, FIConfig.blacklistRegistryItems);
-        assertArrayEquals(new String[] { "ingotCopper" }, FIConfig.blacklistOreDict);
+        assertNotNull(FIConfig.blacklist);
+        assertEquals(
+            0,
+            FIConfig.blacklist.getItems()
+                .size());
+        assertEquals(Collections.singleton(280), FIConfig.blacklist.getRegistryItems());
+        assertEquals(Collections.singleton("ingotCopper"), FIConfig.blacklist.getOreDict());
         assertEquals("de_de", FIConfig.serverLang);
         assertTrue(FIConfig.disableUpdateCheck);
     }
@@ -307,9 +342,10 @@ public class FIConfigTest {
 
     @Test
     public void backendFailureResetsToSafeDefaults() {
-        FIConfig.blacklistItems = new FIConfig.FIConfigItem[] { new FIConfig.FIConfigItem("{280}(0)") };
-        FIConfig.blacklistRegistryItems = new int[] { 280 };
-        FIConfig.blacklistOreDict = new String[] { "ingotCopper" };
+        FIConfig.blacklist = new FIConfig.Blacklist(
+            Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),
+            Collections.singleton(280),
+            Collections.singletonList("ingotCopper"));
         FIConfig.serverLang = "de_de";
         FIConfig.disableUpdateCheck = true;
         FIConfig.config = mock(Configuration.class);
@@ -318,12 +354,19 @@ public class FIConfigTest {
 
         FIConfig.syncConfig(false);
 
-        assertNotNull(FIConfig.blacklistItems);
-        assertEquals(0, FIConfig.blacklistItems.length);
-        assertNotNull(FIConfig.blacklistRegistryItems);
-        assertEquals(0, FIConfig.blacklistRegistryItems.length);
-        assertNotNull(FIConfig.blacklistOreDict);
-        assertEquals(0, FIConfig.blacklistOreDict.length);
+        assertNotNull(FIConfig.blacklist);
+        assertEquals(
+            0,
+            FIConfig.blacklist.getItems()
+                .size());
+        assertEquals(
+            0,
+            FIConfig.blacklist.getRegistryItems()
+                .size());
+        assertEquals(
+            0,
+            FIConfig.blacklist.getOreDict()
+                .size());
         assertEquals("en_us", FIConfig.serverLang);
         assertFalse(FIConfig.disableUpdateCheck);
     }
@@ -375,12 +418,99 @@ public class FIConfigTest {
         writeConfig(new String[] { "{280}(0)", "{99999}(0)", "garbage" }, new int[0], new String[0], "en_us", false);
 
         FIConfig.init(configFile());
-        assertEquals(2, FIConfig.blacklistItems.length);
+        assertEquals(
+            2,
+            FIConfig.blacklist.getItems()
+                .size());
 
         FIConfig.resolveItems();
 
-        assertEquals(1, FIConfig.blacklistItems.length);
-        assertSame(MinecraftTestBootstrap.stick(), FIConfig.blacklistItems[0].getItem());
+        assertEquals(
+            1,
+            FIConfig.blacklist.getItems()
+                .size());
+        assertSame(
+            MinecraftTestBootstrap.stick(),
+            FIConfig.blacklist.getItems()
+                .get(0)
+                .getItem());
+    }
+
+    @Test
+    public void blacklistSnapshotIgnoresNullEntriesAndNormalizesOreNames() {
+        FIConfig.Blacklist snapshot = new FIConfig.Blacklist(
+            Arrays.asList(null, new FIConfig.FIConfigItem("{280}(0)")),
+            null,
+            Arrays.asList(" ingot_Copper-2 ", "", null));
+
+        assertEquals(
+            1,
+            snapshot.getItems()
+                .size());
+        assertEquals(Collections.singleton("ingot_Copper-2"), snapshot.getOreDict());
+        assertTrue(
+            snapshot.getRegistryItems()
+                .isEmpty());
+    }
+
+    @Test
+    public void blacklistMatchesItemMetadataAndRegistryIndependently() {
+        FIConfig.FIConfigItem stick0 = new FIConfig.FIConfigItem("{280}(0)");
+        FIConfig.Blacklist itemOnly = new FIConfig.Blacklist(
+            Collections.singletonList(stick0),
+            Collections.<Integer>emptySet(),
+            Collections.<String>emptyList());
+        assertTrue(itemOnly.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 0)));
+        assertFalse(itemOnly.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 1)));
+
+        FIConfig.Blacklist registryOnly = new FIConfig.Blacklist(
+            Collections.<FIConfig.FIConfigItem>emptyList(),
+            Collections.singleton(280),
+            Collections.<String>emptyList());
+        assertTrue(registryOnly.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 1)));
+    }
+
+    @Test
+    public void blacklistSnapshotIsImmutable() {
+        FIConfig.Blacklist snapshot = new FIConfig.Blacklist(
+            Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),
+            Collections.singleton(280),
+            Collections.singletonList("ingotCopper"));
+
+        try {
+            snapshot.getItems()
+                .clear();
+            throw new AssertionError("items list is mutable");
+        } catch (UnsupportedOperationException expected) {
+            // expected
+        }
+
+        try {
+            snapshot.getRegistryItems()
+                .clear();
+            throw new AssertionError("registry set is mutable");
+        } catch (UnsupportedOperationException expected) {
+            // expected
+        }
+
+        try {
+            snapshot.getOreDict()
+                .clear();
+            throw new AssertionError("ore dictionary set is mutable");
+        } catch (UnsupportedOperationException expected) {
+            // expected
+        }
+    }
+
+    @Test
+    public void malformedOrNullStacksAreNotBlacklisted() {
+        FIConfig.Blacklist snapshot = new FIConfig.Blacklist(
+            Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),
+            null,
+            null);
+
+        assertFalse(snapshot.isBlacklisted(null));
+        assertFalse(snapshot.isBlacklisted(new ItemStack((Item) null)));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -414,5 +544,4 @@ public class FIConfigTest {
         byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
         return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
     }
-
 }

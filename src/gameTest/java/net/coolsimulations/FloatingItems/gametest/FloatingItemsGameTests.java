@@ -2,6 +2,8 @@ package net.coolsimulations.FloatingItems.gametest;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -32,10 +34,8 @@ import cpw.mods.fml.common.FMLCommonHandler;
  * </p>
  *
  * <p>
- * Correct behaviour is asserted with {@link #check(String, boolean)}. Behaviours that are known to be wrong in the
- * current code are asserted with {@link #xfail(String, boolean)}: they log that the bug is still present, but do
- * not fail the run. If one is fixed, the xfail turns into an XPASS failure so the entry is removed instead of
- * silently rotting. The bug ids refer to {@code CODEBASE_ANALYSIS.md}.
+ * Correct behaviour is asserted with {@link #check(String, boolean)}. The bug ids in the messages refer to
+ * {@code CODEBASE_ANALYSIS.md}.
  * </p>
  */
 final class FloatingItemsGameTests {
@@ -66,7 +66,6 @@ final class FloatingItemsGameTests {
     private static int ticks;
     private static int checks;
     private static int failures;
-    private static int knownBugs;
 
     private static EntityItem waterItem;
     private static EntityItem airItem;
@@ -215,9 +214,10 @@ final class FloatingItemsGameTests {
             case 0:
                 // Defense in depth for B-02: a caller that bypasses the config parser (or mutates the public
                 // array) can still put a null item in the list. The mixin must skip it, not NPE every tick.
-                FIConfig.blacklistItems = new FIConfig.FIConfigItem[] { null, nullItemConfigItem() };
-                FIConfig.blacklistRegistryItems = null;
-                FIConfig.blacklistOreDict = null;
+                FIConfig.blacklist = new FIConfig.Blacklist(
+                    Arrays.<FIConfig.FIConfigItem>asList(null, nullItemConfigItem()),
+                    Collections.<Integer>emptySet(),
+                    Collections.<String>emptyList());
                 COUNTING_CALLS.set(0);
                 waterItem = spawn(0.5D, WATER_START_Y, 0.5D, new ItemStack(Items.stick), 0.2D);
                 waterStartY = waterItem.posY;
@@ -235,26 +235,29 @@ final class FloatingItemsGameTests {
 
             case 1:
                 // A per-metadata blacklist entry must suppress the lift.
-                FIConfig.blacklistItems = new FIConfig.FIConfigItem[] { configItem("{280}(0)") };
-                FIConfig.blacklistRegistryItems = null;
-                FIConfig.blacklistOreDict = null;
+                FIConfig.blacklist = new FIConfig.Blacklist(
+                    Collections.singletonList(configItem("{280}(0)")),
+                    Collections.<Integer>emptySet(),
+                    Collections.<String>emptyList());
                 spawnPhaseItem();
                 break;
 
             case 2:
                 // A registry blacklist must suppress the lift too.
-                FIConfig.blacklistItems = null;
-                FIConfig.blacklistRegistryItems = new int[] { Item.getIdFromItem(Items.stick) };
-                FIConfig.blacklistOreDict = null;
+                FIConfig.blacklist = new FIConfig.Blacklist(
+                    Collections.<FIConfig.FIConfigItem>emptyList(),
+                    Collections.singleton(Item.getIdFromItem(Items.stick)),
+                    Collections.<String>emptyList());
                 spawnPhaseItem();
                 break;
 
             case 3:
                 // The per-metadata entry matches the item but not its metadata. The registry blacklist must still
                 // win; this is the B-07 regression case.
-                FIConfig.blacklistItems = new FIConfig.FIConfigItem[] { configItem("{280}(1)") };
-                FIConfig.blacklistRegistryItems = new int[] { Item.getIdFromItem(Items.stick) };
-                FIConfig.blacklistOreDict = null;
+                FIConfig.blacklist = new FIConfig.Blacklist(
+                    Collections.singletonList(configItem("{280}(1)")),
+                    Collections.singleton(Item.getIdFromItem(Items.stick)),
+                    Collections.<String>emptyList());
                 spawnPhaseItem();
                 break;
 
@@ -266,9 +269,10 @@ final class FloatingItemsGameTests {
                     OreDictionary.registerOre("floatingItemsGameTestWool", new ItemStack(Blocks.wool, 1, 0));
                     oreRegistered = true;
                 }
-                FIConfig.blacklistItems = null;
-                FIConfig.blacklistRegistryItems = null;
-                FIConfig.blacklistOreDict = new String[] { "floatingItemsGameTestWool" };
+                FIConfig.blacklist = new FIConfig.Blacklist(
+                    Collections.<FIConfig.FIConfigItem>emptyList(),
+                    Collections.<Integer>emptySet(),
+                    Collections.singletonList("floatingItemsGameTestWool"));
                 spawnPhaseItem(new ItemStack(Blocks.wool, 1, 1));
                 break;
 
@@ -344,7 +348,7 @@ final class FloatingItemsGameTests {
                 break;
 
             case 4:
-                xfail(
+                check(
                     "an ore dictionary blacklist covers every metadata of the entry (B-09)",
                     phaseItem.posY <= phaseStartY + 0.5D);
                 break;
@@ -386,21 +390,6 @@ final class FloatingItemsGameTests {
         }
     }
 
-    /**
-     * Asserts a behaviour that is currently known to be broken. A pass means the bug was fixed and the xfail must
-     * be replaced with a normal {@link #check(String, boolean)}.
-     */
-    private static void xfail(String description, boolean condition) {
-        checks++;
-        if (condition) {
-            failures++;
-            System.out.println(FAIL + "XPASS (known bug was fixed, remove the xfail): " + description);
-        } else {
-            knownBugs++;
-            System.out.println("[FI-GAMETEST] known bug still present: " + description);
-        }
-    }
-
     private static void finish() {
         if (finished) {
             return;
@@ -414,8 +403,7 @@ final class FloatingItemsGameTests {
         }
 
         int passed = checks - failures;
-        System.out.println(
-            "[FI-GAMETEST] " + passed + "/" + checks + " checks passed (" + knownBugs + " documented bugs remain)");
+        System.out.println("[FI-GAMETEST] " + passed + "/" + checks + " checks passed");
         if (failures > 0) {
             System.out.println(GameTestMod.FAIL_MARKER + ": " + failures + " assertion(s) failed, see above");
             GameTestMod.exit(1);

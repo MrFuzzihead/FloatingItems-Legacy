@@ -92,26 +92,23 @@ public class FILangTest {
 
     @Test
     public void unknownLanguageFallsBackToUsEnglish() {
+        String english = translation("en_us", "floatingitems.update.display1");
         FIConfig.serverLang = "xx_xx";
-        assertEquals(
-            FILang.englishUSLang("floatingitems.update.display1"),
-            FILang.getTranslations("floatingitems.update.display1"));
+        assertEquals(english, FILang.getTranslations("floatingitems.update.display1"));
     }
 
     @Test
     public void nullLanguageFallsBackToUsEnglish() {
+        String english = translation("en_us", "floatingitems.update.display1");
         FIConfig.serverLang = null;
-        assertEquals(
-            FILang.englishUSLang("floatingitems.update.display1"),
-            FILang.getTranslations("floatingitems.update.display1"));
+        assertEquals(english, FILang.getTranslations("floatingitems.update.display1"));
     }
 
     @Test
     public void languageCodeIsCaseInsensitive() {
+        String german = translation("de_de", "floatingitems.update.display1");
         FIConfig.serverLang = "DE_DE";
-        assertEquals(
-            FILang.germanLang("floatingitems.update.display1"),
-            FILang.getTranslations("floatingitems.update.display1"));
+        assertEquals(german, FILang.getTranslations("floatingitems.update.display1"));
     }
 
     @Test
@@ -122,41 +119,38 @@ public class FILangTest {
 
     @Test
     public void greekOneSecondKeyIsStillTranslated() {
-        // This key is a leftover from the ServerStop code base, but it is present in the Greek table and should stay
-        // testable until the dead-key cleanup in CODEBASE_ANALYSIS.md removes it.
-        assertFalse("floatingitems.one_second".equals(FILang.greekLang("floatingitems.one_second")));
+        FIConfig.serverLang = "el_gr";
+        assertFalse("floatingitems.one_second".equals(FILang.getTranslations("floatingitems.one_second")));
     }
 
     @Test
     public void pirateCommandKeysAreStillTranslated() {
-        // Also a ServerStop leftover. Kept as a characterization test until the dead translations are deleted.
+        FIConfig.serverLang = "en_pt";
         assertFalse(
-            "floatingitems.commands.cancel.usage".equals(FILang.englishPTLang("floatingitems.commands.cancel.usage")));
+            "floatingitems.commands.cancel.usage"
+                .equals(FILang.getTranslations("floatingitems.commands.cancel.usage")));
         assertFalse(
             "floatingitems.commands.cancel.display1"
-                .equals(FILang.englishPTLang("floatingitems.commands.cancel.display1")));
+                .equals(FILang.getTranslations("floatingitems.commands.cancel.display1")));
     }
 
     @Test
-    @Ignore("Known bug CODEBASE_ANALYSIS.md B-11: FILang compares keys with ==, so constructed keys are not translated")
     public void constructedKeyIsTranslated() {
-        FIConfig.serverLang = "de_de";
+        String expected = translation("de_de", "floatingitems.update.display1");
         String key = new String("floatingitems.update.display1");
-        assertEquals(FILang.germanLang("floatingitems.update.display1"), FILang.getTranslations(key));
+        FIConfig.serverLang = "de_de";
+        assertEquals(expected, FILang.getTranslations(key));
     }
 
     @Test
-    @Ignore("Known bug CODEBASE_ANALYSIS.md B-12: de_alg is not a Minecraft locale; remove or correct it")
-    public void germanAlgeriaAliasIsNotNeeded() {
-        // This test is a reminder rather than a behavioural assertion: the alias has no documented locale.
+    public void germanAlgeriaAliasStillMapsToGerman() {
         FIConfig.serverLang = "de_alg";
         assertEquals(
-            FILang.germanLang("floatingitems.update.display1"),
+            translation("de_de", "floatingitems.update.display1"),
             FILang.getTranslations("floatingitems.update.display1"));
     }
 
     @Test
-    @Ignore("Known bug CODEBASE_ANALYSIS.md B-13: Chinese tables use the fullwidth percent sign, so %s is never substituted")
     public void chineseTablesUseAsciiPlaceholders() {
         FIConfig.serverLang = "zh_cn";
         assertEquals(2, countPlaceholders(FILang.getTranslations("floatingitems.update.display1")));
@@ -165,13 +159,11 @@ public class FILangTest {
     }
 
     @Test
-    @Ignore("Known bug CODEBASE_ANALYSIS.md B-16: toLowerCase() uses the default locale, so an uppercase locale code can miss")
     public void languageCodeLowercasingIsLocaleIndependent() {
+        String italian = translation("it_it", "floatingitems.update.display1");
         Locale.setDefault(new Locale("tr", "TR"));
         FIConfig.serverLang = "IT_IT";
-        assertEquals(
-            FILang.italianLang("floatingitems.update.display1"),
-            FILang.getTranslations("floatingitems.update.display1"));
+        assertEquals(italian, FILang.getTranslations("floatingitems.update.display1"));
     }
 
     @Test
@@ -184,6 +176,11 @@ public class FILangTest {
             FILang.getTranslations("floatingitems.update.display1")
                 .toLowerCase(Locale.ROOT)
                 .contains("floatingitems"));
+    }
+
+    private static String translation(String language, String key) {
+        FIConfig.serverLang = language;
+        return FILang.getTranslations(key);
     }
 
     private static int countPlaceholders(String value) {

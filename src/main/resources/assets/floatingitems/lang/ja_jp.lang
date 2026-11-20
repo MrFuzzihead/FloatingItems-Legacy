@@ -1,0 +1,4 @@
+floatingitems.update.display1=これは%sの古いバージョンです。 バージョン%sがリリースされました。
+floatingitems.update.display2=クリックしてダウンロードしてください。
+floatingitems.update.display3=%sはMinecraftバージョン%sをサポートしなくなりました。 より多くの機能のために新しいMinecraftのバージョンにアップデートしてください！
+fi.configgui.title=FloatingItems 構成

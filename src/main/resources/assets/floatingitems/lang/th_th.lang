@@ -1,0 +1,4 @@
+floatingitems.update.display1=นี่เป็นรุ่นเก่าของ %s! เวอร์ชั่น %s พร้อมแล้ว!
+floatingitems.update.display2=กรุณาคลิกเพื่อดาวน์โหลด!
+floatingitems.update.display3=%s ไม่รองรับ Minecraft เวอร์ชั่น %s อีกต่อไป! โปรดอัปเดตเป็นเวอร์ชั่น Minecraft ที่ใหม่กว่าสำหรับคุณสมบัติเพิ่มเติม!
+fi.configgui.title=FloatingItems การกำหนดค่า

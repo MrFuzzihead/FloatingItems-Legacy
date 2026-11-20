@@ -47,18 +47,18 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 70 headless JUnit 4 tests, 6 known-bug skips (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 73 headless JUnit 4 tests, 1 P3 localization skip (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
-| `./gradlew gameTestServer` | boots a real dedicated server, runs 11 in-game checks (1 remaining known bug is xfailed), then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
+| `./gradlew gameTestServer` | boots a real dedicated server, runs 11 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
 
 The game test is a non-shipped `@Mod` in `src/gameTest/java`; it is only on the classpath for `gameTestServer` (or
 `-PgameTest`) and never reaches the published jar. It covers what cannot be tested headlessly: a real Forge server,
 real `EntityItem` physics, negative coordinates, the blacklist rules, and the event-bus wiring.
 
-Assertions for known bugs are marked `xfail`: they report that the bug is still present, and fail as `XPASS` once
-the bug is fixed so the marker is removed instead of silently rotting. The P0 batch from the analysis is fixed;
-the remaining findings are tracked there.
+The P0/P1/P2 batches from the analysis are fixed. The only skipped unit test is the `en_ud` localization check
+(B-14, P3); the in-game suite currently has no xfails. Remaining findings are tracked in
+[CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md).
 
 ### Configuration
 
@@ -68,7 +68,7 @@ the remaining findings are tracked there.
 |---|---|
 | Blacklist of Items that should not Float | `{itemId}(metadata)` |
 | Blacklist of All Items regardless of Metadata | item ID |
-| Blacklist of OreDict Entries that should not Float | ore-dictionary name |
+| Blacklist of OreDict Entries that should not Float | ore-dictionary name — all metadata of the entry |
 | Default Server language | locale code, e.g. `en_us` |
 | Disable FloatingItems Update Check | boolean - disables both the GitHub request and the message |
 

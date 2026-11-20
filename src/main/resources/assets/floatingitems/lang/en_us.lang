@@ -1,0 +1,4 @@
+floatingitems.update.display1=This is an old version of %s! Version %s is now available!
+floatingitems.update.display2=Please click to download!
+floatingitems.update.display3=%s no longer supports Minecraft Version %s! Please update to a newer Minecraft Version for more features!
+fi.configgui.title=FloatingItems Config

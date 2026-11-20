@@ -1,0 +1,4 @@
+floatingitems.update.display1=这是%s的旧版本！ 版本%s现已推出！
+floatingitems.update.display2=请点击下载！
+floatingitems.update.display3=%s不再支持Minecraft Version%s！ 请更新到更新的Minecraft版本以获取更多功能！
+fi.configgui.title=FloatingItems 配置
