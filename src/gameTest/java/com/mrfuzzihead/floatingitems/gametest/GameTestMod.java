@@ -50,6 +50,7 @@ public class GameTestMod {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
+        FloatingItemsGameTests.registerTestBlocks();
         // PlayerEvent and TickEvent live on FML's bus in 1.7.10, not on the Forge bus.
         FMLCommonHandler.instance()
             .bus()

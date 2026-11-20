@@ -33,7 +33,7 @@ Current verification baseline:
 
 ```text
 ./gradlew check                     PASS  (unit tests + Spotless + Checkstyle + JaCoCo floor + gameTest compile)
-./gradlew gameTestServer            PASS  11/11 checks, no known bugs remain
+./gradlew gameTestServer            PASS  23/23 checks, no known bugs remain
 Unit tests                          94 executed, no skipped tests
 JaCoCo (unit run)                   line 548/629 = 87.1%, branch 280/368 = 76.1%
 ```
@@ -229,7 +229,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | **F-11** | Config GUI categories/lang keys, logical property order (`setCategoryPropertyOrder`), and a “reload” button/command. | Fixes D-06/B-20; makes the config usable on a live server. |
 | **F-12** | `/floatingitems status` and `/floatingitems reload` commands. | Operators can inspect the effective blacklist and reload without restarting. |
 | **F-13** | Debug counters (items evaluated, items floated, cache hits) behind a config flag. | Makes P-01 measurable in production. |
-| **F-14** | More game tests: partially submerged items, source vs flowing water (especially downward flow), chunk borders, unload/reload, item NBT, modded liquid, item merge/despawn, config reload. | The current 11 checks cover the main physics and blacklist paths; these are the next highest-value cases. |
+| **F-14** | More game tests: partially submerged items, source vs flowing water (especially downward flow), chunk borders, unload/reload, item NBT, modded liquid, item merge/despawn, config reload. | **Applied:** 23 in-game checks now cover all of these except a live chunk unload/reload; NBT save/load covers persistence, while a real unload/reload is left as a follow-up because the forced chunk ticket and dedicated-server unload ordering make it flaky. |
 | **F-15** | Add a smoke test for a dedicated server boot without the game-test mod. | The current `gameTestServer` exits after assertions; a separate `-PsmokeTest` boot is useful for packaging/CI. |
 | **F-16** | Add Modrinth/CurseForge relationships for UniMixins and document the dependency in `mcmod.info`/README. | **Partly applied in the P0 pass:** `@Mod(dependencies)` and `mcmod.info` are fixed; publishing relations remain. |
 | **F-17** | Add a `data/`-style regression table for modern 1.13+ physics and a compatibility note for each supported Forge/MCP version. | Prevents future “backport” drifts. |
@@ -238,29 +238,33 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 
 Ranked by user value, regression risk and dependencies. This is the order to work in; it is not a promise to implement every item.
 
+**F-14 is applied:** the in-game suite now has 23 checks, including the source-vs-downward-flowing-water control,
+partial submersion, chunk borders, NBT, merge/despawn, config reload and a non-water liquid. A live chunk
+unload/reload remains a follow-up because it is flaky on the forced-chunk dedicated server; the NBT round trip covers
+the persistence data.
+
 **P1 — next**
 
-1. **F-14** — expand the game tests first. In particular, lock in the observed source-vs-downward-flowing-water behaviour, then add partial submersion, NBT, merge/despawn, chunk unload/reload and config reload. This is the safety net for every later policy change.
-2. **F-04** — make the liquid policy explicit. This fixes the current false positives in oil/custom hot liquids and defines the semantics that F-05 and F-06 must follow. Start with `water` / `any water material` / explicit allowlist.
-3. **F-02** — whitelist mode. High server value; build it on the same policy/config shape as F-04 so the two do not grow separate parsers or reload paths.
-4. **F-05** — tunable buoyancy. Expose a small set only: lift, horizontal damping, maximum upward speed and surface offset. Validate/clamp every value. Do not add a “source blocks only” switch as a parity feature; it would deliberately diverge from modern Java.
-5. **F-12** — `/floatingitems status` and `/floatingitems reload`. Small operational win, and the reload path is reused by F-11. `status` should show the effective blacklist/whitelist, liquid policy and buoyancy settings.
+1. **F-04** — make the liquid policy explicit. This fixes the current false positives in oil/custom hot liquids and defines the semantics that F-05 and F-06 must follow. Start with `water` / `any water material` / explicit allowlist.
+2. **F-02** — whitelist mode. High server value; build it on the same policy/config shape as F-04 so the two do not grow separate parsers or reload paths.
+3. **F-05** — tunable buoyancy. Expose a small set only: lift, horizontal damping, maximum upward speed and surface offset. Validate/clamp every value. Do not add a “source blocks only” switch as a parity feature; it would deliberately diverge from modern Java.
+4. **F-12** — `/floatingitems status` and `/floatingitems reload`. Small operational win, and the reload path is reused by F-11. `status` should show the effective blacklist/whitelist, liquid policy and buoyancy settings.
 
 **P2 — after P1**
 
-6. **F-11** — config GUI categories/lang keys and a reload button. Client-only and larger; share the F-12 reload service rather than adding a second reload path.
-7. **F-08** — public float events and `IFloatingItem`. Higher addon value, but the event contract should be designed after F-02/F-04/F-05 stabilise the policy semantics.
-8. **F-06** — verify modern current behaviour and add the flowing-water test. The vanilla current is already active; treat this as verification/documentation unless the test exposes a real gap.
-9. **F-03** — per-dimension / per-biome / per-mod-id rules. High complexity and niche value; start with mod-id rules if it is pursued, then dimensions, then biomes.
-10. **F-13** — debug counters behind a config flag. Useful for production measurement but not worth adding before the policy work is stable.
-11. **F-15** — dedicated-server smoke boot without the game-test mod. Release/CI safety rather than gameplay value.
+5. **F-11** — config GUI categories/lang keys and a reload button. Client-only and larger; share the F-12 reload service rather than adding a second reload path.
+6. **F-08** — public float events and `IFloatingItem`. Higher addon value, but the event contract should be designed after F-02/F-04/F-05 stabilise the policy semantics.
+7. **F-06** — verify modern current behaviour and add the flowing-water test. The source-vs-downward-flow control is now in F-14; the remaining work is comparison against 1.13+ and any gap it exposes.
+8. **F-03** — per-dimension / per-biome / per-mod-id rules. High complexity and niche value; start with mod-id rules if it is pursued, then dimensions, then biomes.
+9. **F-13** — debug counters behind a config flag. Useful for production measurement but not worth adding before the policy work is stable.
+10. **F-15** — dedicated-server smoke boot without the game-test mod. Release/CI safety rather than gameplay value.
 
 **P3 — defer / release hygiene**
 
-12. **F-07** — surface bobbing. Cosmetic; fold into F-05’s surface offset if it is ever done.
-13. **F-10** — update-check result caching. The check runs once at startup, so the benefit is small; optional.
-14. **F-16** — Modrinth/CurseForge relationships and dependency documentation. Low effort, but release metadata rather than code.
-15. **F-17** — modern-physics regression table and Forge/MCP compatibility notes. Documentation; do it as the physics work settles.
+11. **F-07** — surface bobbing. Cosmetic; fold into F-05’s surface offset if it is ever done.
+12. **F-10** — update-check result caching. The check runs once at startup, so the benefit is small; optional.
+13. **F-16** — Modrinth/CurseForge relationships and dependency documentation. Low effort, but release metadata rather than code.
+14. **F-17** — modern-physics regression table and Forge/MCP compatibility notes. Documentation; do it as the physics work settles.
 
 **Not planned:** F-09 (per-player update-message localisation).
 
@@ -298,7 +302,7 @@ Ranked by user value, regression risk and dependencies. This is the order to wor
 | `addon.gradle.kts` | Applies JaCoCo, configures `Test` on a Java 8 toolchain, extends the test classpaths with `compileOnly` (Minecraft/Forge), creates `build/reports/jacoco/test`, enforces a line/branch floor, creates the `gameTest` source set, and registers `prepareGameTestServer`/`gameTestServer`/`jacocoGameTestReport`. |
 | `dependencies.gradle` | JUnit 4.13.2, Mockito 4.11.0, mockito-inline. Mockito 4 is the newest line that runs on Java 8; mockito-inline allows final Minecraft classes to be mocked. |
 | `src/test/java/...` | 10 test classes / 94 tests (no `@Ignore` markers). |
-| `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus a 5-phase assertion suite. |
+| `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus a 13-phase assertion suite. |
 | `.github/workflows/game-test.yml` | Installs Java 8 + 25, runs `./gradlew test gameTestServer`, checks the `FLOATINGITEMS_GAMETEST_OK` marker, uploads the server log and coverage. |
 | `README.md` | Testing commands and the remaining P3 marker policy. |
 
@@ -325,8 +329,9 @@ Run: `./gradlew test` (Java 8 toolchain). Report: `build/reports/tests/test/inde
 `GameTestMod` is a separate `@Mod` with `dependencies = "required-after:floatingitems"`, discovered only when the
 `gameTest` output is on the run classpath. It registers a `ServerTickEvent` handler and exits the JVM with the
 suite's status. `FloatingItemsGameTests` builds a small arena at y=100 (water pool, lava pool, one-block
-negative-coordinate column, two air columns), obtains a Forge chunk ticket so the no-player dedicated server keeps
-the chunks loaded, and runs five phases:
+negative-coordinate column, chunk-border pool, downward waterfall, shallow pool, test-only non-water liquid, and two
+air columns), obtains a Forge chunk ticket so the no-player dedicated server keeps the chunks loaded, and runs
+thirteen phases:
 
 | Phase | Assertions |
 |---|---|
@@ -335,9 +340,19 @@ the chunks loaded, and runs five phases:
 | 2 | registry blacklist suppresses the lift |
 | 3 | registry blacklist is not shadowed by a per-metadata entry with a different meta (B-07) |
 | 4 | ore-dictionary blacklist covers all metadata of the entry (B-09) |
+| 5 | a real `ConfigChangedEvent` reload applies the item blacklist |
+| 6 | still source water rises; the control item in downward-flowing water does not rise |
+| 7 | an item with only its lower half in water still floats |
+| 8 | an item whose bounding box straddles the x=16/z=16 chunk border floats |
+| 9 | item NBT survives a save/load round trip and is preserved while floating |
+| 10 | two nearby items merge into one stack |
+| 11 | an item with a short lifespan despawns |
+| 12 | a test-only non-water liquid does not receive water buoyancy |
 
 Plus a synchronous config-bus check at start: posting `ConfigChangedEvent.OnConfigChangedEvent` to the FML bus
-reloads `FIConfig` (B-10, now a normal check).
+reloads `FIConfig` (B-10, now a normal check). A live chunk unload/reload is deliberately not part of the suite: the
+forced chunk ticket and dedicated-server unload ordering make it nondeterministic. Phase 9 tests the same persistence
+data through an entity NBT round trip instead.
 
 Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a deterministic `server.properties`
 (`gameTestWorld`, flat, offline, no watchdog), deletes the old test world, and exits non-zero on failure.
@@ -349,8 +364,8 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 - In-game report: `build/reports/jacoco/gameTest/html`, generated after `gameTestServer` via
   `jacocoGameTestReport`. The JaCoCo agent is run with `classdumpdir=build/jacoco/gameTestClasses`, so the report
   reads exactly the bytes the agent instrumented. It is not merged into the unit report because a Forge 1.7.10
-  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 240/562 lines (42.7%)
-  and 85/340 branches (25.0%)
+  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 251/562 lines (44.7%)
+  and 92/340 branches (27.1%)
 - Regression floor: 65% line / 70% branch. The measured unit baseline is 87.1% line / 76.1% branch. The floor is a
   guard, not a target; the mixin remains largely uncovered, and the update handler is covered by
   its opt-out/result/HTTP branches but not by a live network check.
@@ -397,7 +412,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 and P2 are
 
 14. D-03/D-09/D-11/D-12/D-15 cleanup done; D-08 intentionally kept; D-02/D-04/D-05 retained as deprecated public API shims.
 15. R-01/R-02/R-03/R-04/R-05/R-06/R-07/R-08/R-09/R-11/R-12/R-13/R-14/R-15 are applied.
-16. F-01 and the API part of F-08 are applied. F-02…F-17 remain; the ordered backlog is in §7.1 (F-14 → F-04 → F-02 → F-05 → F-12, then the P2/P3 items). F-09 is not planned.
+16. F-01, F-14 and the API part of F-08 are applied. F-02…F-17 remain; the ordered backlog is in §7.1 (F-04 → F-02 → F-05 → F-12, then the P2/P3 items). F-09 is not planned.
 
 ---
 
@@ -457,18 +472,17 @@ All paths are under `build/rfg/minecraft-src/java` (RFG-decompiled 1.7.10 source
 
 | Measurement | Value |
 |---|---|
-| Unit tests | 88 run, 0 skipped, 0 failures |
-| Game-test phases | 5 phases × 120 ticks, plus the synchronous config-bus check |
-| Game-test assertions | 11 checks; no known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
-| Game-test run time | ~47 s on the development machine (including Forge startup) |
-| JaCoCo unit line | 516/597 = 86.4% |
-| JaCoCo unit branch | 278/366 = 76.0% |
-| JaCoCo unit instruction | 2,118/2,392 = 88.5% |
+| Unit tests | 94 run, 0 skipped, 0 failures |
+| Game-test phases | 13 phases × 120 ticks, plus the synchronous config-bus check |
+| Game-test assertions | 23 checks; no known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
+| Game-test run time | ~90 s on the development machine (including Forge startup) |
+| JaCoCo unit line | 548/629 = 87.1% |
+| JaCoCo unit branch | 280/368 = 76.1% |
+| JaCoCo unit instruction | 2,244/2,518 = 89.1% |
 | JaCoCo floor | 65% line / 70% branch |
-| JaCoCo game-test run | 213/530 lines = 40.2%, 84/338 branches = 24.9% (short physics-only run) |
+| JaCoCo game-test run | 251/562 lines = 44.7%, 92/340 branches = 27.1% (short physics-only run) |
 | Test JVM | Java 8 toolchain (Temurin 8.0.432) |
 
-The game test prints per-phase Y values (`waterY`, `airY`, `lavaY`, `negativeY`) and the observed
-`onEntityItemUpdate` count. Across the last two runs: `waterY` rose from 101.0 to ~101.9–104.1 (the exact position depends on how quickly
-the forced chunk starts ticking), `airY ≈ 4.125` (from 110.0), `lavaY ≈ 101.4–101.5`, `negativeY ≈ 101.125`
-(no float), and `onEntityItemUpdateCalls = 119` for 120 ticks (one per tick; evidence for B-06 being fixed).
+The game test prints per-phase Y values and the observed `onEntityItemUpdate` count. In the final run:
+`waterY = 101.84`, `airY = 4.125` (from 110.0), `lavaY = 101.48`, `negativeY = 101.71`, `sourceY = 101.85`,
+`flowingY = 101.125`, and `onEntityItemUpdateCalls = 119` for 120 ticks (one per tick; evidence for B-06 being fixed).

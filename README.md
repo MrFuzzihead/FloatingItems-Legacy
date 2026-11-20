@@ -49,12 +49,13 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 |---|---|
 | `./gradlew test` | 94 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
-| `./gradlew gameTestServer` | boots a real dedicated server, runs 11 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
+| `./gradlew gameTestServer` | boots a real dedicated server, runs 23 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
 
 The game test is a non-shipped `@Mod` in `src/gameTest/java`; it is only on the classpath for `gameTestServer` (or
 `-PgameTest`) and never reaches the published jar. It covers what cannot be tested headlessly: a real Forge server,
-real `EntityItem` physics, negative coordinates, the blacklist rules, and the event-bus wiring.
+real `EntityItem` physics, negative coordinates, the blacklist rules, source vs downward-flowing water, partial
+submersion, chunk borders, item NBT, merge/despawn, config reload, and the event-bus wiring.
 
 The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites currently have no skipped or xfail tests. Remaining feature work is tracked in
 [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md).

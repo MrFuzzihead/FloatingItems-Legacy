@@ -8,22 +8,28 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.minecraft.block.Block;
+import net.minecraft.block.material.MapColor;
+import net.minecraft.block.material.Material;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.world.ChunkCoordIntPair;
+import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.floatingitems.FIConfig;
+import com.mrfuzzihead.floatingitems.FIReference;
 
 import cpw.mods.fml.client.event.ConfigChangedEvent;
 import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.registry.GameRegistry;
 
 /**
  * The in-game assertions.
@@ -52,12 +58,33 @@ final class FloatingItemsGameTests {
     private static final int LAVA_X = -8;
     private static final int NEGATIVE_X = -24;
     private static final int NEGATIVE_Z = -24;
+    private static final int FLOWING_X = 24;
+    private static final int SHALLOW_X = -16;
+    private static final int CHUNK_BORDER_X = 15;
+    private static final int CHUNK_BORDER_Z = 15;
+    private static final int MODDED_LIQUID_X = 0;
+    private static final int MODDED_LIQUID_Z = 24;
+
+    private static final String ITEM_BLACKLIST_KEY = "Blacklist of Items that should not Float";
 
     private static final String PASS = "[FI-GAMETEST] ok   ";
     private static final String FAIL = "[FI-GAMETEST] FAIL ";
 
     private static final AtomicInteger COUNTING_CALLS = new AtomicInteger();
     private static final Item COUNTING_ITEM = new CountingItem();
+    private static final Material MODDED_LIQUID_MATERIAL = new Material(MapColor.waterColor) {
+
+        @Override
+        public boolean isLiquid() {
+            return true;
+        }
+
+        @Override
+        public boolean blocksMovement() {
+            return false;
+        }
+    };
+    private static final Block MODDED_LIQUID = new GameTestLiquidBlock();
 
     private static WorldServer world;
     private static boolean running;
@@ -74,12 +101,35 @@ final class FloatingItemsGameTests {
     private static EntityItem negativeItem;
     private static EntityItem countingItem;
     private static EntityItem phaseItem;
+    private static EntityItem sourceItem;
+    private static EntityItem flowingItem;
+    private static EntityItem shallowItem;
+    private static EntityItem chunkBorderItem;
+    private static EntityItem nbtItem;
+    private static EntityItem mergeItemA;
+    private static EntityItem mergeItemB;
+    private static EntityItem despawnItem;
+    private static EntityItem moddedLiquidItem;
+    private static ItemStack nbtStack;
     private static double waterStartY;
     private static double negativeStartY;
     private static double phaseStartY;
+    private static double sourceStartY;
+    private static double flowingStartY;
+    private static double shallowStartY;
+    private static double chunkBorderStartY;
+    private static double nbtStartY;
+    private static double moddedLiquidStartY;
     private static ForgeChunkManager.Ticket chunkTicket;
 
     private FloatingItemsGameTests() {}
+
+    /**
+     * Registers the test-only liquid block so world saves can serialize it. Called from {@link GameTestMod#preInit}.
+     */
+    static void registerTestBlocks() {
+        GameRegistry.registerBlock(MODDED_LIQUID, "floatingItemsGameTestLiquid");
+    }
 
     /**
      * Builds the arena and schedules phase 0. Must run on the server thread.
@@ -91,6 +141,7 @@ final class FloatingItemsGameTests {
             return;
         }
         world = overworld;
+        resetItemBlacklistConfig();
         keepArenaLoaded();
         buildArenas();
         clearItems();
@@ -158,6 +209,14 @@ final class FloatingItemsGameTests {
         // One-block water column at x=-24. The item's bounding box is inside block -24, while (int)posX is -23,
         // which is the stone wall. That is exactly the negative-coordinate bug.
         buildPool(NEGATIVE_X, NEGATIVE_Z, 0, Blocks.water);
+        // A pool that straddles the x=16/z=16 chunk border. Both chunks are covered by the ticket.
+        buildPool(CHUNK_BORDER_X, CHUNK_BORDER_Z, 1, Blocks.water);
+        // A downward-flowing column: one source at the top and air below it.
+        buildWaterfall(FLOWING_X, 0);
+        // A one-block-deep pool for a partially submerged item.
+        buildShallowPool(SHALLOW_X, 0);
+        // A non-water liquid-like block for the modded-liquid policy check.
+        buildModdedLiquidPool(MODDED_LIQUID_X, MODDED_LIQUID_Z);
 
         // Clear the two air columns (the arena is above the flat-world ground, so nothing else lives there).
         for (int x = AIR_X - 1; x <= AIR_X + 1; x++) {
@@ -188,6 +247,48 @@ final class FloatingItemsGameTests {
                 for (int z = centerZ - radius - 1; z <= centerZ + radius + 1; z++) {
                     boolean wall = Math.abs(x - centerX) > radius || Math.abs(z - centerZ) > radius;
                     world.setBlock(x, y, z, wall ? Blocks.stone : liquid);
+                }
+            }
+        }
+    }
+
+    private static void buildWaterfall(int centerX, int centerZ) {
+        for (int x = centerX - 1; x <= centerX + 1; x++) {
+            for (int z = centerZ - 1; z <= centerZ + 1; z++) {
+                world.setBlock(x, FLOOR_Y, z, Blocks.stone);
+            }
+        }
+
+        for (int y = FLOOR_Y + 1; y <= WATER_TOP_Y + 1; y++) {
+            for (int x = centerX - 1; x <= centerX + 1; x++) {
+                for (int z = centerZ - 1; z <= centerZ + 1; z++) {
+                    boolean wall = x != centerX || z != centerZ;
+                    world.setBlock(x, y, z, wall ? Blocks.stone : Blocks.air);
+                }
+            }
+        }
+        // The source is above the air column; the blocks below become downward-flowing water.
+        world.setBlock(centerX, WATER_TOP_Y + 1, centerZ, Blocks.water);
+    }
+
+    private static void buildShallowPool(int centerX, int centerZ) {
+        for (int x = centerX - 1; x <= centerX + 1; x++) {
+            for (int z = centerZ - 1; z <= centerZ + 1; z++) {
+                world.setBlock(x, FLOOR_Y, z, Blocks.stone);
+                boolean wall = x != centerX || z != centerZ;
+                world.setBlock(x, FLOOR_Y + 1, z, wall ? Blocks.stone : Blocks.water);
+                world.setBlock(x, FLOOR_Y + 2, z, wall ? Blocks.stone : Blocks.air);
+            }
+        }
+    }
+
+    private static void buildModdedLiquidPool(int centerX, int centerZ) {
+        for (int x = centerX - 1; x <= centerX + 1; x++) {
+            for (int z = centerZ - 1; z <= centerZ + 1; z++) {
+                world.setBlock(x, FLOOR_Y, z, Blocks.stone);
+                boolean wall = x != centerX || z != centerZ;
+                for (int y = FLOOR_Y + 1; y <= WATER_TOP_Y; y++) {
+                    world.setBlock(x, y, z, wall ? Blocks.stone : MODDED_LIQUID);
                 }
             }
         }
@@ -277,6 +378,69 @@ final class FloatingItemsGameTests {
                 spawnPhaseItem(new ItemStack(Blocks.wool, 1, 1));
                 break;
 
+            case 5:
+                // Exercise a real config reload, not a direct FIConfig.blacklist assignment.
+                setItemBlacklistConfig("{280}(0)");
+                spawnPhaseItem();
+                break;
+
+            case 6:
+                // The control is a still source pool. The second item sits in a downward-flowing column.
+                resetItemBlacklistConfig();
+                sourceItem = spawn(0.5D, WATER_START_Y, 0.5D, new ItemStack(Items.stick), 0.2D);
+                sourceStartY = sourceItem.posY;
+                flowingItem = spawn(FLOWING_X + 0.5D, 102.5D, 0.5D, new ItemStack(Items.stick), 0.0D);
+                flowingStartY = flowingItem.posY;
+                break;
+
+            case 7:
+                // The item starts with only its lower half inside the one-block-deep water.
+                shallowItem = spawn(SHALLOW_X + 0.5D, FLOOR_Y + 1.0D, 0.5D, new ItemStack(Items.stick), 0.0D);
+                shallowStartY = shallowItem.posY;
+                break;
+
+            case 8:
+                // posX/posZ are just below 16, so the bounding box crosses both chunk borders.
+                chunkBorderItem = spawn(
+                    CHUNK_BORDER_X + 0.9D,
+                    WATER_START_Y,
+                    CHUNK_BORDER_Z + 0.9D,
+                    new ItemStack(Items.stick),
+                    0.2D);
+                chunkBorderStartY = chunkBorderItem.posY;
+                break;
+
+            case 9:
+                nbtStack = new ItemStack(Items.stick);
+                NBTTagCompound tag = new NBTTagCompound();
+                tag.setString("floatingItemsTest", "kept");
+                nbtStack.setTagCompound(tag);
+                nbtStack.setStackDisplayName("FloatingItems NBT");
+                check("item NBT survives an entity save/load round trip", nbtRoundTrip(nbtStack));
+                nbtItem = spawn(0.5D, WATER_START_Y, 0.5D, nbtStack, 0.2D);
+                nbtStartY = nbtItem.posY;
+                break;
+
+            case 10:
+                mergeItemA = spawn(0.5D, WATER_START_Y, 0.5D, new ItemStack(Items.stick), 0.0D);
+                mergeItemB = spawn(0.5D, WATER_START_Y, 0.5D, new ItemStack(Items.stick), 0.0D);
+                break;
+
+            case 11:
+                despawnItem = spawn(AIR_X + 0.5D, 110.0D, 0.5D, new ItemStack(Items.stick), 0.0D);
+                despawnItem.lifespan = 5;
+                break;
+
+            case 12:
+                moddedLiquidItem = spawn(
+                    MODDED_LIQUID_X + 0.5D,
+                    FLOOR_Y + 1.0D,
+                    MODDED_LIQUID_Z + 0.5D,
+                    new ItemStack(Items.stick),
+                    0.0D);
+                moddedLiquidStartY = moddedLiquidItem.posY;
+                break;
+
             default:
                 finish();
                 break;
@@ -354,6 +518,71 @@ final class FloatingItemsGameTests {
                     phaseItem.posY <= phaseStartY + 0.5D);
                 break;
 
+            case 5:
+                check("a config reload blacklist suppresses the lift", phaseItem.posY <= phaseStartY + 0.5D);
+                break;
+
+            case 6:
+                System.out.println(
+                    "[FI-GAMETEST] info phase 6: sourceY=" + sourceItem.posY + " flowingY=" + flowingItem.posY);
+                check(
+                    "an item in still source water rises (control)",
+                    sourceItem.isEntityAlive() && sourceItem.posY > sourceStartY + 0.5D);
+                check(
+                    "an item in downward-flowing water does not rise",
+                    flowingItem.isEntityAlive() && flowingItem.posY <= flowingStartY + 0.05D);
+                break;
+
+            case 7:
+                check(
+                    "a partially submerged item rises",
+                    shallowItem.isEntityAlive() && shallowItem.posY > shallowStartY + 0.2D);
+                break;
+
+            case 8:
+                check(
+                    "the chunk-border item actually straddles a chunk border",
+                    chunkBorderItem.boundingBox.maxX > 16.0D && chunkBorderItem.boundingBox.maxZ > 16.0D);
+                check(
+                    "an item on a chunk border floats",
+                    chunkBorderItem.isEntityAlive() && chunkBorderItem.posY > chunkBorderStartY + 0.2D);
+                break;
+
+            case 9:
+                ItemStack observed = nbtItem.getEntityItem();
+                check(
+                    "item NBT is preserved while floating",
+                    nbtItem.isEntityAlive() && observed != null
+                        && observed.hasTagCompound()
+                        && "kept".equals(
+                            observed.getTagCompound()
+                                .getString("floatingItemsTest"))
+                        && "FloatingItems NBT".equals(observed.getDisplayName())
+                        && nbtItem.posY > nbtStartY + 0.2D);
+                break;
+
+            case 10:
+                int alive = (mergeItemA.isEntityAlive() ? 1 : 0) + (mergeItemB.isEntityAlive() ? 1 : 0);
+                EntityItem survivor = mergeItemA.isEntityAlive() ? mergeItemA : mergeItemB;
+                check(
+                    "two nearby items merge into one stack",
+                    alive == 1 && survivor.getEntityItem() != null && survivor.getEntityItem().stackSize == 2);
+                break;
+
+            case 11:
+                check("an item with a short lifespan despawns", despawnItem.isDead);
+                break;
+
+            case 12:
+                check(
+                    "the modded-liquid test block is not water",
+                    world.getBlock(MODDED_LIQUID_X, FLOOR_Y + 1, MODDED_LIQUID_Z)
+                        .getMaterial() != Material.water);
+                check(
+                    "an item in a non-water modded liquid does not receive water buoyancy",
+                    moddedLiquidItem.isEntityAlive() && moddedLiquidItem.posY <= moddedLiquidStartY + 0.2D);
+                break;
+
             default:
                 break;
         }
@@ -361,9 +590,7 @@ final class FloatingItemsGameTests {
 
     private static void checkConfigEventBus() {
         try {
-            Field configField = FIConfig.class.getDeclaredField("config");
-            configField.setAccessible(true);
-            Configuration config = (Configuration) configField.get(null);
+            Configuration config = config();
             String key = "Default Server language";
             config.get("util", key, "en_us")
                 .set("de_de");
@@ -379,6 +606,44 @@ final class FloatingItemsGameTests {
         } catch (Throwable t) {
             check("the config event test could run: " + t, false);
         }
+    }
+
+    private static void resetItemBlacklistConfig() {
+        setItemBlacklistConfig(new String[0]);
+    }
+
+    private static void setItemBlacklistConfig(String... entries) {
+        Configuration config = config();
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, ITEM_BLACKLIST_KEY, new String[0])
+            .set(entries);
+        FMLCommonHandler.instance()
+            .bus()
+            .post(new ConfigChangedEvent.OnConfigChangedEvent(FIReference.MOD_ID, null, false, false));
+    }
+
+    private static Configuration config() {
+        try {
+            Field configField = FIConfig.class.getDeclaredField("config");
+            configField.setAccessible(true);
+            return (Configuration) configField.get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("could not access FIConfig.config", e);
+        }
+    }
+
+    private static boolean nbtRoundTrip(ItemStack stack) {
+        EntityItem original = new EntityItem(world, 0.5D, WATER_START_Y, 0.5D, stack);
+        NBTTagCompound entityTag = new NBTTagCompound();
+        original.writeEntityToNBT(entityTag);
+
+        EntityItem loaded = new EntityItem(world);
+        loaded.readEntityFromNBT(entityTag);
+        ItemStack loadedStack = loaded.getEntityItem();
+        return loadedStack != null && loadedStack.hasTagCompound()
+            && "kept".equals(
+                loadedStack.getTagCompound()
+                    .getString("floatingItemsTest"))
+            && "FloatingItems NBT".equals(loadedStack.getDisplayName());
     }
 
     private static void check(String description, boolean condition) {
@@ -398,6 +663,13 @@ final class FloatingItemsGameTests {
         finished = true;
         running = false;
         clearItems();
+        try {
+            resetItemBlacklistConfig();
+        } catch (Throwable t) {
+            failures++;
+            checks++;
+            System.out.println(FAIL + "the game-test config was reset: " + t);
+        }
         if (chunkTicket != null) {
             ForgeChunkManager.releaseTicket(chunkTicket);
             chunkTicket = null;
@@ -437,6 +709,30 @@ final class FloatingItemsGameTests {
             return constructor.newInstance(entry);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("could not create FIConfigItem(" + entry + ")", e);
+        }
+    }
+
+    /** A liquid-like material that is deliberately not {@link Material#water}. */
+    private static final class GameTestLiquidBlock extends Block {
+
+        GameTestLiquidBlock() {
+            super(MODDED_LIQUID_MATERIAL);
+            setBlockName("floatingItemsGameTestLiquid");
+        }
+
+        @Override
+        public AxisAlignedBB getCollisionBoundingBoxFromPool(World worldIn, int x, int y, int z) {
+            return null;
+        }
+
+        @Override
+        public boolean isOpaqueCube() {
+            return false;
+        }
+
+        @Override
+        public boolean renderAsNormalBlock() {
+            return false;
         }
     }
 
