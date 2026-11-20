@@ -511,10 +511,10 @@ public class FIConfigTest {
 
         assertTrue(first.isBlacklisted(stick0));
         assertTrue(first.isBlacklisted(stick0));
-        assertEquals(1, first.cachedDecisionCount());
+        assertEquals(1, first.getCachedDecisionCount());
 
         assertFalse(first.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 1)));
-        assertEquals(2, first.cachedDecisionCount());
+        assertEquals(2, first.getCachedDecisionCount());
 
         FIConfig.Blacklist registryOnly = new FIConfig.Blacklist(
             Collections.<FIConfig.FIConfigItem>emptyList(),
@@ -522,11 +522,11 @@ public class FIConfigTest {
             Collections.<String>emptyList());
         assertTrue(registryOnly.isBlacklisted(stick0));
         assertTrue(registryOnly.isBlacklisted(stick0));
-        assertEquals(1, registryOnly.cachedDecisionCount());
+        assertEquals(1, registryOnly.getCachedDecisionCount());
 
         FIConfig.Blacklist second = FIConfig.Blacklist.empty();
         assertFalse(second.isBlacklisted(stick0));
-        assertEquals("empty snapshots should not grow a cache", 0, second.cachedDecisionCount());
+        assertEquals("empty snapshots should not grow a cache", 0, second.getCachedDecisionCount());
         assertTrue(first.isBlacklisted(stick0));
     }
 
