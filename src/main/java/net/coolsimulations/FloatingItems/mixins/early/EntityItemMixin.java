@@ -1,4 +1,4 @@
-package net.coolsimulations.FloatingItems.mixin;
+package net.coolsimulations.FloatingItems.mixins.early;
 
 import net.coolsimulations.FloatingItems.FIConfig;
 import net.coolsimulations.FloatingItems.FIConfig.FIConfigItem;
