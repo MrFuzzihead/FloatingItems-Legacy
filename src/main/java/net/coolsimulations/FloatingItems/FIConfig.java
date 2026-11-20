@@ -176,19 +176,19 @@ public class FIConfig {
 
             /**
              * if(this.registry == other.registry) {
-             * 
+             *
              * if(this.meta == other.meta) {
-             * 
+             *
              * if(this.item == other.item) {
              * return true;
              * } else {
              * return false;
              * }
-             * 
+             *
              * } else {
              * return false;
              * }
-             * 
+             *
              * } else {
              * return false;
              * }
