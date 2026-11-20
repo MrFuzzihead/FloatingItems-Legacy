@@ -6,6 +6,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.world.World;
 
+import com.mrfuzzihead.floatingitems.api.BlacklistSnapshot;
+
 /**
  * Pure(ish) floating rules shared by the mixin and the unit tests.
  *
@@ -30,7 +32,7 @@ public final class FloatingItemPolicy {
      * @param blacklist the immutable blacklist snapshot, or {@code null}
      * @return true when the item is not blacklisted and is touching water
      */
-    public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, FIConfig.Blacklist blacklist) {
+    public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> blacklist) {
 
         if (stack == null || stack.getItem() == null) {
             return false;

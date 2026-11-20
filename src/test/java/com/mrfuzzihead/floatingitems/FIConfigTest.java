@@ -532,6 +532,17 @@ public class FIConfigTest {
     }
 
     @Test
+    public void topLevelSnapshotCarriesTheConfigDecision() {
+        FIConfigSnapshot snapshot = new FIConfigSnapshot(
+            Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),
+            Collections.<Integer>emptySet(),
+            Collections.<String>emptyList());
+
+        assertTrue(snapshot.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 0)));
+        assertFalse(snapshot.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 1)));
+    }
+
+    @Test
     public void blacklistSnapshotIsImmutable() {
         FIConfig.Blacklist snapshot = new FIConfig.Blacklist(
             Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),

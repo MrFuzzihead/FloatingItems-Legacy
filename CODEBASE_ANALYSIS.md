@@ -5,9 +5,10 @@ Scope: `src/main/java` (9 classes, ~1,500 LOC including the 1,024-line `FILang`)
 (mixin configs, `mcmod.info`), Gradle/GTNH build, CI workflows.  
 Baseline: Minecraft 1.7.10 / Forge 10.13.4.1614 / GTNH buildscript 2.0.34 / UniMixins 0.3.x.
 
-This document records the review. The P0 batch (B-01, B-02, B-03, B-04, B-10, B-18 and B-19) has been fixed and is
-covered by the tests described in §9. The text below describes the original defects; the P0 change log in §3.1
-lists what was changed. Everything from P1 onward remains open unless stated otherwise.
+This document records the review. The P0-P3 bug-fix, cleanup and refactor batches are applied as noted in the
+tables below. The remaining work is the feature backlog in §7 and the B-25 follow-up (per-player locale and a
+notification-only mode). The text below keeps the original defect descriptions for context; each change log records
+what was actually changed.
 
 The companion test harness is described in §9 and wired through `addon.gradle.kts`, `dependencies.gradle`,
 `src/test/java`, `src/gameTest/java` and `.github/workflows/game-test.yml`. Known bugs use the `B-xx` ids below; the
@@ -34,8 +35,8 @@ Current verification baseline:
 ```text
 ./gradlew check                     PASS  (unit tests + Spotless + Checkstyle + JaCoCo floor + gameTest compile)
 ./gradlew gameTestServer            PASS  11/11 checks, no known bugs remain
-Unit tests                          88 executed, no skipped tests
-JaCoCo (unit run)                   line 516/597 = 86.4%, branch 278/366 = 76.0%
+Unit tests                          94 executed, no skipped tests
+JaCoCo (unit run)                   line 548/629 = 87.1%, branch 280/368 = 76.1%
 ```
 
 The game test has no xfails and the unit suite has no skipped tests.
@@ -196,7 +197,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 |---|---|---|
 | **R-01** | Extract a pure `FloatingItemPolicy` (or `Blacklist`) from the mixin: `boolean shouldFloat(ItemStack stack, World world, int x, int y, int z)`. | **Applied in the refactor batch:** `FloatingItemPolicy` owns the blacklist/water/motion rules; the mixin is a thin redirect adapter. |
 | **R-02** | Represent blacklist entries as registry names + optional metadata wildcard, and pre-compute sets at config sync. | **Applied in the refactor batch:** registry-name entries, `:meta`, `:*`/`:-1` wildcards, legacy `{id}(meta)` fallback and wildcard lookup are covered. |
-| **R-03** | Split `FIConfig` into a config-holder, a parser/validator and a `BlacklistSnapshot`. Parse each entry independently and report/skip bad entries. | **Applied for P0:** parsing/validation is independent; the snapshot split remains future work. |
+| **R-03** | Split `FIConfig` into a config-holder, a parser/validator and a `BlacklistSnapshot`. Parse each entry independently and report/skip bad entries. | **Applied:** `FIConfigParser` reads and validates `Configuration` into an immutable `ParsedConfig`; `FIConfig` remains the lifecycle/state holder and publishes a top-level `FIConfigSnapshot`. The old nested `Blacklist`/`FIConfigItem` types remain as compatibility wrappers. Malformed item entries are skipped independently. |
 | **R-04** | Replace the 1,024-line `FILang` chain with a data table loaded from `assets/floatingitems/lang/*.lang` (or a `Map` constant). Keep the server-side selection mechanism. | **Applied in the P2 pass:** UTF-8 `.lang` resources + alias map; B-11/B-13/B-16 fixed and the Java table is gone. |
 | **R-05** | Wrap the update check in an async service with timeouts and a small result object; build chat components from a real translation key + siblings, not a full sentence used as a key. | **Applied in this batch:** `UpdateCheckService`/`UpdateCheckResult` isolate the async check and result; `FIUpdateHandler` builds localized components from the key format and sibling arguments. |
 | **R-06** | Register the event handler on `FMLCommonHandler.instance().bus()` (or both buses) and add a test that posts the event. | **Applied in the P0 pass:** the handler is on the FML bus and the game test posts the event. |
@@ -267,7 +268,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 |---|---|
 | `addon.gradle.kts` | Applies JaCoCo, configures `Test` on a Java 8 toolchain, extends the test classpaths with `compileOnly` (Minecraft/Forge), creates `build/reports/jacoco/test`, enforces a line/branch floor, creates the `gameTest` source set, and registers `prepareGameTestServer`/`gameTestServer`/`jacocoGameTestReport`. |
 | `dependencies.gradle` | JUnit 4.13.2, Mockito 4.11.0, mockito-inline. Mockito 4 is the newest line that runs on Java 8; mockito-inline allows final Minecraft classes to be mocked. |
-| `src/test/java/...` | 9 test classes / 88 tests (no `@Ignore` markers). |
+| `src/test/java/...` | 10 test classes / 94 tests (no `@Ignore` markers). |
 | `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus a 5-phase assertion suite. |
 | `.github/workflows/game-test.yml` | Installs Java 8 + 25, runs `./gradlew test gameTestServer`, checks the `FLOATINGITEMS_GAMETEST_OK` marker, uploads the server log and coverage. |
 | `README.md` | Testing commands and the remaining P3 marker policy. |
@@ -277,6 +278,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | Class | What it covers |
 |---|---|
 | `FILangTest` | Every supported locale × every update/config key; placeholder preservation; aliases; fallback for null/unknown language; case-insensitivity; constructed keys; Chinese ASCII placeholders; Turkish-locale safety; no skipped tests. |
+| `FIConfigParserTest` | Independent config parsing/validation: mixed valid/malformed entries, defaults, unknown-item retention, legacy update-key migration, property order and immutable parser results. |
 | `FIConfigTest` | Defaults, logical property order, legacy and registry-name parsing, wildcard metadata, malformed/unknown entries, deferred resolution, all-invalid/backend-failure fallbacks, immutable snapshot, per-snapshot decision cache/empty fast path, equality/hash. |
 | `FIReferenceTest` | Mod id/name/version injection, accepted MC range, Forge + UniMixins dependencies, config file/category names. |
 | `FloatingItemsMetadataTest` | Reads the `@Mod` annotation and the shipped `mcmod.info` back, checks the GUI factory class name, its `@SideOnly(CLIENT)` marker and the UniMixins requirement. |
@@ -318,9 +320,9 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 - In-game report: `build/reports/jacoco/gameTest/html`, generated after `gameTestServer` via
   `jacocoGameTestReport`. The JaCoCo agent is run with `classdumpdir=build/jacoco/gameTestClasses`, so the report
   reads exactly the bytes the agent instrumented. It is not merged into the unit report because a Forge 1.7.10
-  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 213/530 lines (40.2%)
-  and 84/338 branches (24.9%)
-- Regression floor: 65% line / 70% branch. The measured unit baseline is 86.4% line / 76.0% branch. The floor is a
+  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 240/562 lines (42.7%)
+  and 85/340 branches (25.0%)
+- Regression floor: 65% line / 70% branch. The measured unit baseline is 87.1% line / 76.1% branch. The floor is a
   guard, not a target; the mixin remains largely uncovered, and the update handler is covered by
   its opt-out/result/HTTP branches but not by a live network check.
 
@@ -339,7 +341,7 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 
 ### P0 — release blockers (done in this revision)
 
-The P0 batch below is implemented and covered by the tests in §9; P1 is also complete. The next open work starts at P2.
+The P0 batch below is implemented and covered by the tests in §9; P1 and P2 are also complete, and the P3 cleanup/refactors are applied. The remaining work is the feature backlog in §7.
 
 1. **B-02/B-03/B-01** (done): validate every blacklist entry, skip malformed strings, defer item resolution to
    postInit and drop ids that still do not resolve, and never create a null item that crashes the server.
@@ -356,7 +358,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 is also co
 
 ### P2 — localisation, API, config polish (done in this revision)
 
-9. **B-09**: decide whether ore-dictionary entries are exact-metadata or whole-entry; implement and document it.
+9. **B-09** (done): ore-dictionary entries are whole-entry; metadata is intentionally ignored.
 10. **B-11/B-13/B-15/B-16** (done): map/resource-table FILang, ASCII placeholders, trimmed ore names and `Locale.ROOT`.
 11. **B-20/D-06** (done): apply `setCategoryPropertyOrder`; persist comments.
 12. **B-23** (done): publish an immutable blacklist snapshot; mutable arrays removed.
