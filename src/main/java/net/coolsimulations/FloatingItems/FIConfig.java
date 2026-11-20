@@ -4,194 +4,198 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.common.config.ConfigElement;
+import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Property;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Level;
 
 import cpw.mods.fml.client.config.IConfigElement;
 import cpw.mods.fml.relauncher.FMLRelaunchLog;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.common.config.ConfigElement;
-import net.minecraftforge.common.config.Configuration;
-import net.minecraftforge.common.config.Property;
 
 public class FIConfig {
 
-	static Configuration config;
+    static Configuration config;
 
-	public static FIConfigItem[] blacklistItems;
-	
-	public static int[] blacklistRegistryItems;
-	
-	public static String[] blacklistOreDict;
+    public static FIConfigItem[] blacklistItems;
 
-	public static String serverLang;
+    public static int[] blacklistRegistryItems;
 
-	public static boolean disableUpdateCheck;
+    public static String[] blacklistOreDict;
 
-	public static void init(File file) {
-		config = new Configuration(file);
-		syncConfig(true);
-	}
+    public static String serverLang;
 
-	public static void forceSave() {
-		config.save();
-	}
+    public static boolean disableUpdateCheck;
 
-	public static void syncConfig(boolean load)
-	{
-		List<String> propOrder = new ArrayList<String>();
+    public static void init(File file) {
+        config = new Configuration(file);
+        syncConfig(true);
+    }
 
-		try
-		{
-			Property prop;
+    public static void forceSave() {
+        config.save();
+    }
 
-			if (!config.isChild)
-			{
-				if (load)
-				{
-					config.load();
-				}
-			}
+    public static void syncConfig(boolean load) {
+        List<String> propOrder = new ArrayList<String>();
 
-			prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Blacklist of Items that should not Float", new String[]{});
-			prop.comment = "Format: {Item ID}(Metadata). Example of Spruce Log: {17}(1)";
+        try {
+            Property prop;
 
-			List<FIConfigItem> blacklist = new ArrayList<FIConfigItem>();
-			for(String entry : prop.getStringList()) {
-				blacklist.add(new FIConfigItem(entry));
-			}
+            if (!config.isChild) {
+                if (load) {
+                    config.load();
+                }
+            }
 
-			if(blacklist != null)
-				blacklistItems = blacklist.toArray(new FIConfigItem[] {});
+            prop = config
+                .get(FIReference.CONFIG_CATEGORY_UTIL, "Blacklist of Items that should not Float", new String[] {});
+            prop.comment = "Format: {Item ID}(Metadata). Example of Spruce Log: {17}(1)";
 
-			propOrder.add(prop.getName());
-			
-			prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Blacklist of All Items regardless of Metadata that should not Float", new int[]{});
-			prop.comment = "Format: Item ID. Example of Cobblestone: 4";
-			blacklistRegistryItems = prop.getIntList();
-			propOrder.add(prop.getName());
-			
-			prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Blacklist of OreDict Entries that should not Float", new String[]{});
-			prop.comment = "Format: OreDict. Example of Copper Ingot: ingotCopper";
-			blacklistOreDict = prop.getStringList();
-			propOrder.add(prop.getName());
+            List<FIConfigItem> blacklist = new ArrayList<FIConfigItem>();
+            for (String entry : prop.getStringList()) {
+                blacklist.add(new FIConfigItem(entry));
+            }
 
-			prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Default Server language", "en_us");
-			prop.comment = "Server language codes are based off the Minecraft .lang files. See https://minecraft.gamepedia.com/Language for list.";
-			serverLang = prop.getString();
-			propOrder.add(prop.getName());
+            if (blacklist != null) blacklistItems = blacklist.toArray(new FIConfigItem[] {});
 
-			prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Disable FloatingItems Update Checker Message", false);
-			disableUpdateCheck = prop.getBoolean(false);
-			propOrder.add(prop.getName());
+            propOrder.add(prop.getName());
 
-			if (config.hasChanged())
-			{
-				config.save();
-			}
+            prop = config.get(
+                FIReference.CONFIG_CATEGORY_UTIL,
+                "Blacklist of All Items regardless of Metadata that should not Float",
+                new int[] {});
+            prop.comment = "Format: Item ID. Example of Cobblestone: 4";
+            blacklistRegistryItems = prop.getIntList();
+            propOrder.add(prop.getName());
 
-		}
-		catch (final Exception e)
-		{
-			FMLRelaunchLog.log(FIReference.MOD_NAME, Level.ERROR, ("Problem loading FloatingItems config (\"FloatingItems.conf\")"));
-			e.printStackTrace();
-		}
-	}
+            prop = config.get(
+                FIReference.CONFIG_CATEGORY_UTIL,
+                "Blacklist of OreDict Entries that should not Float",
+                new String[] {});
+            prop.comment = "Format: OreDict. Example of Copper Ingot: ingotCopper";
+            blacklistOreDict = prop.getStringList();
+            propOrder.add(prop.getName());
 
-	public static List<IConfigElement> getConfigElements() {
-		List<IConfigElement> list = new ArrayList<IConfigElement>();
-		list.addAll(new ConfigElement(config.getCategory(FIReference.CONFIG_CATEGORY_UTIL)).getChildElements());
-		return list;
-	}
+            prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Default Server language", "en_us");
+            prop.comment = "Server language codes are based off the Minecraft .lang files. See https://minecraft.gamepedia.com/Language for list.";
+            serverLang = prop.getString();
+            propOrder.add(prop.getName());
 
-	public static class FIConfigItem {
+            prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Disable FloatingItems Update Checker Message", false);
+            disableUpdateCheck = prop.getBoolean(false);
+            propOrder.add(prop.getName());
 
-		private int registry;
-		private int meta;
-		private Item item;
+            if (config.hasChanged()) {
+                config.save();
+            }
 
-		FIConfigItem(ItemStack stack) {
+        } catch (final Exception e) {
+            FMLRelaunchLog.log(
+                FIReference.MOD_NAME,
+                Level.ERROR,
+                ("Problem loading FloatingItems config (\"FloatingItems.conf\")"));
+            e.printStackTrace();
+        }
+    }
 
-			this.item = stack.getItem();
-			this.meta = stack.getMetadata();
-			this.registry = Item.getIdFromItem(this.item);
-		}
+    public static List<IConfigElement> getConfigElements() {
+        List<IConfigElement> list = new ArrayList<IConfigElement>();
+        list.addAll(new ConfigElement(config.getCategory(FIReference.CONFIG_CATEGORY_UTIL)).getChildElements());
+        return list;
+    }
 
-		FIConfigItem(String entry) {
-			
-			entry = entry.replaceAll(" ", "");
+    public static class FIConfigItem {
 
-			this.meta = Integer.parseInt(StringUtils.substringBetween(entry, "(", ")"));
-			this.registry = Integer.parseInt(StringUtils.substringBetween(entry, "{", "}"));
-			this.item = (Item) Item.itemRegistry.getObjectById(this.registry);
-		}
+        private int registry;
+        private int meta;
+        private Item item;
 
-		public Item getItem() {
+        FIConfigItem(ItemStack stack) {
 
-			return this.item;
-		}
+            this.item = stack.getItem();
+            this.meta = stack.getItemDamage();
+            this.registry = Item.getIdFromItem(this.item);
+        }
 
-		public int getMeta() {
+        FIConfigItem(String entry) {
 
-			return this.meta;
-		}
+            entry = entry.replaceAll(" ", "");
 
-		public ItemStack getStack() {
+            this.meta = Integer.parseInt(StringUtils.substringBetween(entry, "(", ")"));
+            this.registry = Integer.parseInt(StringUtils.substringBetween(entry, "{", "}"));
+            this.item = (Item) Item.itemRegistry.getObjectById(this.registry);
+        }
 
-			return getStack(1);
-		}
+        public Item getItem() {
 
-		public ItemStack getStack(int count) {
+            return this.item;
+        }
 
-			return new ItemStack(this.item, count, this.meta);
-		}
+        public int getMeta() {
 
-		public int getRegistry() {
+            return this.meta;
+        }
 
-			return this.registry;
-		}
+        public ItemStack getStack() {
 
-		@Override
-		public String toString() {
+            return getStack(1);
+        }
 
-			return "{" + this.registry + "}(" + this.meta + ")";
-		}
+        public ItemStack getStack(int count) {
 
-		@Override
-		public boolean equals(Object obj) {
+            return new ItemStack(this.item, count, this.meta);
+        }
 
-			if (obj == this) {
-				return true;
-			}
+        public int getRegistry() {
 
-			if (!(obj instanceof FIConfigItem)) {
-				return false;
-			}
+            return this.registry;
+        }
 
-			FIConfigItem other = (FIConfigItem) obj;
-			
-			/**if(this.registry == other.registry) {
-				
-				if(this.meta == other.meta) {
-					
-					if(this.item == other.item) {
-						return true;
-					} else {
-						return false;
-					}
-					
-				} else {
-					return false;
-				}
-				
-			} else {
-				return false;
-			}**/
-			
-			return this.registry == other.registry && this.meta == other.meta && this.item == other.item;
-		}
-	}
+        @Override
+        public String toString() {
+
+            return "{" + this.registry + "}(" + this.meta + ")";
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+
+            if (obj == this) {
+                return true;
+            }
+
+            if (!(obj instanceof FIConfigItem)) {
+                return false;
+            }
+
+            FIConfigItem other = (FIConfigItem) obj;
+
+            /**
+             * if(this.registry == other.registry) {
+             *
+             * if(this.meta == other.meta) {
+             *
+             * if(this.item == other.item) {
+             * return true;
+             * } else {
+             * return false;
+             * }
+             *
+             * } else {
+             * return false;
+             * }
+             *
+             * } else {
+             * return false;
+             * }
+             **/
+
+            return this.registry == other.registry && this.meta == other.meta && this.item == other.item;
+        }
+    }
 
 }
