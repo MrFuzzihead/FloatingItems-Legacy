@@ -6,9 +6,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import java.io.OutputStream;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 
 import org.junit.After;
 import org.junit.Before;
@@ -19,7 +18,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 /**
- * Covers the update checker's opt-out and HTTP helper paths without touching the production update URLs.
+ * Covers the GitHub release check, the opt-out paths and every result branch without touching GitHub.
  */
 public class FIUpdateHandlerTest {
 
@@ -65,6 +64,14 @@ public class FIUpdateHandlerTest {
     }
 
     @Test
+    public void versionPrefixIsIgnored() {
+        FIUpdateHandler.processUpdateData("v" + FIReference.VERSION.replaceFirst("^[vV]", ""), null);
+
+        assertFalse(FIUpdateHandler.isOld);
+        assertNull(FIUpdateHandler.updateInfo);
+    }
+
+    @Test
     public void olderVersionBuildsTheWarningAndTheReleaseNotes() {
         FIUpdateHandler.processUpdateData("0.0.0-test", "release notes");
 
@@ -103,72 +110,94 @@ public class FIUpdateHandlerTest {
     }
 
     @Test
-    public void readFirstLineTrimsWhitespaceAndUsesUtf8() throws Exception {
-        HttpServer server = startServer("/version", new HttpHandler() {
-
-            @Override
-            public void handle(HttpExchange exchange) throws java.io.IOException {
-                byte[] body = "  1.2.3  \nsecond line\n".getBytes(StandardCharsets.UTF_8);
-                exchange.sendResponseHeaders(200, body.length);
-                try (OutputStream out = exchange.getResponseBody()) {
-                    out.write(body);
-                }
-            }
-        });
+    public void latestReleaseTagIsReadFromTheRedirect() throws Exception {
+        HttpServer server = server("/releases/latest", redirect("/releases/tag/v1.2.3"));
 
         try {
-            assertEquals("1.2.3", FIUpdateHandler.readFirstLine(url(server, "/version")));
+            assertEquals("v1.2.3", FIUpdateHandler.readLatestReleaseTag(url(server, "/releases/latest")));
         } finally {
             server.stop(0);
         }
     }
 
     @Test
-    public void readFirstLineReturnsNullForAnEmptyBody() throws Exception {
-        HttpServer server = startServer("/empty", new HttpHandler() {
-
-            @Override
-            public void handle(HttpExchange exchange) throws java.io.IOException {
-                exchange.sendResponseHeaders(200, -1);
-                exchange.close();
-            }
-        });
+    public void releaseTagIsUrlDecoded() throws Exception {
+        HttpServer server = server("/releases/latest", redirect("/releases/tag/v1.2.3%2Bbuild.7"));
 
         try {
-            assertNull(FIUpdateHandler.readFirstLine(url(server, "/empty")));
+            assertEquals("v1.2.3+build.7", FIUpdateHandler.readLatestReleaseTag(url(server, "/releases/latest")));
         } finally {
             server.stop(0);
         }
     }
 
     @Test
-    public void readFirstLineReturnsNullForAnErrorResponse() throws Exception {
-        HttpServer server = startServer("/missing", new HttpHandler() {
-
-            @Override
-            public void handle(HttpExchange exchange) throws java.io.IOException {
-                exchange.sendResponseHeaders(404, -1);
-                exchange.close();
-            }
-        });
+    public void aNonTagRedirectIsRejected() throws Exception {
+        HttpServer server = server("/releases/latest", redirect("/releases/latest"));
 
         try {
-            assertNull(FIUpdateHandler.readFirstLine(url(server, "/missing")));
+            assertNull(FIUpdateHandler.readLatestReleaseTag(url(server, "/releases/latest")));
         } finally {
             server.stop(0);
         }
     }
 
     @Test
-    public void readFirstLineReturnsNullForANullLocation() {
-        assertNull(FIUpdateHandler.readFirstLine(null));
+    public void aNonRedirectResponseIsRejected() throws Exception {
+        HttpServer server = server("/releases/latest", status(200));
+
+        try {
+            assertNull(FIUpdateHandler.readLatestReleaseTag(url(server, "/releases/latest")));
+        } finally {
+            server.stop(0);
+        }
     }
 
-    private static HttpServer startServer(String context, HttpHandler handler) throws Exception {
+    @Test
+    public void anErrorResponseIsRejected() throws Exception {
+        HttpServer server = server("/releases/latest", status(404));
+
+        try {
+            assertNull(FIUpdateHandler.readLatestReleaseTag(url(server, "/releases/latest")));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    public void aNullLocationIsRejected() {
+        assertNull(FIUpdateHandler.readLatestReleaseTag(null));
+    }
+
+    private static HttpServer server(String context, HttpHandler handler) throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext(context, handler);
         server.start();
         return server;
+    }
+
+    private static HttpHandler redirect(String location) {
+        return new HttpHandler() {
+
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                exchange.getResponseHeaders()
+                    .add("Location", location);
+                exchange.sendResponseHeaders(302, -1);
+                exchange.close();
+            }
+        };
+    }
+
+    private static HttpHandler status(int code) {
+        return new HttpHandler() {
+
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                exchange.sendResponseHeaders(code, -1);
+                exchange.close();
+            }
+        };
     }
 
     private static String url(HttpServer server, String path) {

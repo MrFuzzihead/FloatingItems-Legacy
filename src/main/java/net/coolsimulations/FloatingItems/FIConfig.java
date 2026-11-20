@@ -29,6 +29,9 @@ public class FIConfig {
 
     public static boolean disableUpdateCheck;
 
+    private static final String UPDATE_CHECK_KEY = "Disable FloatingItems Update Check";
+    private static final String LEGACY_UPDATE_CHECK_KEY = "Disable FloatingItems Update Checker Message";
+
     public static void init(File file) {
         config = new Configuration(file);
         syncConfig(true);
@@ -90,8 +93,21 @@ public class FIConfig {
             serverLang = prop.getString();
             propOrder.add(prop.getName());
 
-            prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Disable FloatingItems Update Checker Message", false);
-            disableUpdateCheck = prop.getBoolean(false);
+            boolean updateCheckDisabled = false;
+            if (config.hasKey(FIReference.CONFIG_CATEGORY_UTIL, LEGACY_UPDATE_CHECK_KEY)) {
+                if (!config.hasKey(FIReference.CONFIG_CATEGORY_UTIL, UPDATE_CHECK_KEY)) {
+                    updateCheckDisabled = config.get(FIReference.CONFIG_CATEGORY_UTIL, LEGACY_UPDATE_CHECK_KEY, false)
+                        .getBoolean(false);
+                }
+                // Remove the old "hide the message" key so the GUI does not show two update-check options and
+                // existing users keep their preference.
+                config.getCategory(FIReference.CONFIG_CATEGORY_UTIL)
+                    .remove(LEGACY_UPDATE_CHECK_KEY);
+            }
+
+            prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, UPDATE_CHECK_KEY, updateCheckDisabled);
+            prop.comment = "Disable the FloatingItems update check entirely (no network request and no message).";
+            disableUpdateCheck = prop.getBoolean(updateCheckDisabled);
             propOrder.add(prop.getName());
 
             if (config.hasChanged()) {
@@ -261,7 +277,7 @@ public class FIConfig {
 
         public Item getItem() {
 
-            if (this.item == null) {
+            if (this.item == null && this.registry > 0) {
                 Object registered = Item.itemRegistry.getObjectById(this.registry);
                 if (registered instanceof Item) {
                     this.item = (Item) registered;

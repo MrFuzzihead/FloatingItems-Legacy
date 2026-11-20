@@ -1,10 +1,8 @@
 package net.coolsimulations.FloatingItems;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.net.URLDecoder;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import net.minecraft.event.ClickEvent;
@@ -21,9 +19,8 @@ import cpw.mods.fml.relauncher.FMLRelaunchLog;
 
 public class FIUpdateHandler {
 
-    private static final String VERSION_URL = "https://coolsimulations.net/mcmods/floatingitems/versionchecker17.txt";
-    private static final String INFO_URL = "https://coolsimulations.net/mcmods/floatingitems/updateinfo17.txt";
-    private static final String MOD_URL = "https://curseforge.com/minecraft/mc-mods/floatingitems";
+    private static final String RELEASES_URL = "https://github.com/MrFuzzihead/FloatingItems-Legacy/releases/latest";
+    private static final String MOD_URL = RELEASES_URL;
     private static final int TIMEOUT_MILLIS = 5000;
 
     private static final AtomicBoolean CHECK_STARTED = new AtomicBoolean(false);
@@ -34,8 +31,8 @@ public class FIUpdateHandler {
 
     public static void init() {
 
-        // The update checker is a best-effort service. Respect the existing config switch, and allow automation
-        // (unit/CI game tests) to skip the blocking network calls before a world exists.
+        // The update checker is a best-effort service. The config switch disables the request as well as the
+        // message, and automation can skip it without touching the persisted config.
         if (Boolean.getBoolean("floatingitems.skipUpdateCheck") || FIConfig.disableUpdateCheck) {
             return;
         }
@@ -58,14 +55,17 @@ public class FIUpdateHandler {
 
     private static void checkForUpdates() {
 
+        if (FIConfig.disableUpdateCheck || Boolean.getBoolean("floatingitems.skipUpdateCheck")) {
+            return;
+        }
+
         try {
-            String latestVersion = readFirstLine(VERSION_URL);
+            String latestVersion = readLatestReleaseTag(RELEASES_URL);
             if (latestVersion == null || latestVersion.isEmpty()) {
                 return;
             }
 
-            String latestVersionInfo = readFirstLine(INFO_URL);
-            processUpdateData(latestVersion, latestVersionInfo);
+            processUpdateData(latestVersion, null);
         } catch (Throwable t) {
             FMLRelaunchLog.log(FIReference.MOD_NAME, Level.WARN, t, "Unexpected update-check failure");
         }
@@ -75,7 +75,7 @@ public class FIUpdateHandler {
      * Applies one version/info pair. Package-private so the unit suite can exercise every branch without a network
      * request or a running game.
      *
-     * @param latestVersion     the version string returned by the version checker
+     * @param latestVersion     the version string returned by the release checker
      * @param latestVersionInfo the optional release-note line
      */
     static void processUpdateData(String latestVersion, String latestVersionInfo) {
@@ -84,6 +84,7 @@ public class FIUpdateHandler {
         updateInfo = null;
         updateVersionInfo = null;
 
+        latestVersion = normalizeVersion(latestVersion);
         if (latestVersion == null || latestVersion.isEmpty()) {
             return;
         }
@@ -94,7 +95,7 @@ public class FIUpdateHandler {
             return;
         }
 
-        if (latestVersion.equals(FIReference.VERSION)) {
+        if (latestVersion.equals(normalizeVersion(FIReference.VERSION))) {
             return;
         }
 
@@ -103,6 +104,18 @@ public class FIUpdateHandler {
         if (latestVersionInfo != null && !latestVersionInfo.isEmpty()) {
             updateVersionInfo = buildVersionInfoMessage(latestVersionInfo);
         }
+    }
+
+    private static String normalizeVersion(String version) {
+
+        if (version == null) {
+            return null;
+        }
+        String normalized = version.trim();
+        if (normalized.startsWith("v") || normalized.startsWith("V")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized;
     }
 
     private static ChatComponentTranslation buildEndedMessage() {
@@ -166,13 +179,13 @@ public class FIUpdateHandler {
     }
 
     /**
-     * Reads the first line of a remote text file with bounded connect/read timeouts. Package-private so the unit
-     * suite can exercise it against a local HTTP server without touching the production URLs.
+     * Resolves the latest GitHub release tag from the {@code /releases/latest} redirect. Package-private so the
+     * unit suite can exercise it against a local HTTP server without touching GitHub.
      *
-     * @param location the absolute URL to read
-     * @return the trimmed first line, or {@code null} if the request failed or returned an empty body
+     * @param location the absolute {@code releases/latest} URL
+     * @return the decoded tag name, or {@code null} if the request failed, was not a redirect, or had no tag
      */
-    static String readFirstLine(String location) {
+    static String readLatestReleaseTag(String location) {
 
         if (location == null) {
             return null;
@@ -185,21 +198,55 @@ public class FIUpdateHandler {
             connection.setConnectTimeout(TIMEOUT_MILLIS);
             connection.setReadTimeout(TIMEOUT_MILLIS);
             connection.setUseCaches(false);
+            connection.setInstanceFollowRedirects(false);
             connection.setRequestProperty("User-Agent", "FloatingItems/" + FIReference.VERSION);
+            connection.setRequestProperty("Accept", "text/html");
 
-            try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
-                String line = reader.readLine();
-                return line == null ? null : line.trim();
+            int responseCode = connection.getResponseCode();
+            if (responseCode < 300 || responseCode >= 400) {
+                return null;
             }
+
+            String redirect = connection.getHeaderField("Location");
+            if (redirect == null || redirect.isEmpty()) {
+                return null;
+            }
+
+            return releaseTag(new URL(url, redirect));
         } catch (Exception e) {
             FMLRelaunchLog
-                .log(FIReference.MOD_NAME, Level.WARN, "Could not read update data from " + location + ": " + e);
+                .log(FIReference.MOD_NAME, Level.WARN, "Could not read the latest release from " + location + ": " + e);
             return null;
         } finally {
             if (connection != null) {
                 connection.disconnect();
             }
+        }
+    }
+
+    private static String releaseTag(URL url) {
+
+        String path = url.getPath();
+        String marker = "/releases/tag/";
+        int start = path.indexOf(marker);
+        if (start < 0) {
+            return null;
+        }
+
+        String tag = path.substring(start + marker.length());
+        int slash = tag.indexOf('/');
+        if (slash >= 0) {
+            tag = tag.substring(0, slash);
+        }
+        if (tag.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return URLDecoder.decode(tag, "UTF-8")
+                .trim();
+        } catch (Exception e) {
+            return null;
         }
     }
 }

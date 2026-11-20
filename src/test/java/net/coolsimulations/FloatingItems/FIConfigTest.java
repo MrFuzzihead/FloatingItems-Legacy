@@ -46,7 +46,7 @@ public class FIConfigTest {
     private static final String REGISTRY_BLACKLIST = "Blacklist of All Items regardless of Metadata that should not Float";
     private static final String OREDICT_BLACKLIST = "Blacklist of OreDict Entries that should not Float";
     private static final String SERVER_LANGUAGE = "Default Server language";
-    private static final String DISABLE_UPDATE_CHECK = "Disable FloatingItems Update Checker Message";
+    private static final String DISABLE_UPDATE_CHECK = "Disable FloatingItems Update Check";
 
     @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -285,6 +285,24 @@ public class FIConfigTest {
         assertArrayEquals(new String[] { "ingotCopper" }, FIConfig.blacklistOreDict);
         assertEquals("de_de", FIConfig.serverLang);
         assertTrue(FIConfig.disableUpdateCheck);
+    }
+
+    @Test
+    public void legacyUpdateCheckMessageKeyIsMigrated() throws Exception {
+        File file = configFile();
+        Configuration config = new Configuration(file);
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, "Disable FloatingItems Update Checker Message", false)
+            .set(true);
+        config.save();
+
+        FIConfig.init(file);
+
+        assertTrue(FIConfig.disableUpdateCheck);
+        assertTrue(
+            FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, DISABLE_UPDATE_CHECK, false)
+                .getBoolean(false));
+        assertFalse(
+            FIConfig.config.hasKey(FIReference.CONFIG_CATEGORY_UTIL, "Disable FloatingItems Update Checker Message"));
     }
 
     @Test

@@ -35,8 +35,8 @@ Current verification baseline:
 ```text
 ./gradlew check                     PASS  (unit tests + Spotless + Checkstyle + JaCoCo floor + gameTest compile)
 ./gradlew gameTestServer            PASS  11/11 checks, 4 documented known bugs remain
-Unit tests                          65 executed, 6 intentionally @Ignore'd (remaining P2/P3 bugs)
-JaCoCo (unit run)                   line 574/716 = 80.2%, branch 421/536 = 78.5%
+Unit tests                          69 executed, 6 intentionally @Ignore'd (remaining P2/P3 bugs)
+JaCoCo (unit run)                   line 600/752 = 79.8%, branch 439/564 = 77.8%
 ```
 
 The 4 known bugs asserted by the game test are B-06, B-07, B-08 and B-09. The `@Ignore` unit tests cover B-05,
@@ -62,7 +62,7 @@ The config surface is five properties in the `util` category:
 | All Items regardless of Metadata | `itemId` | Whole-item blacklist |
 | OreDict Entries that should not Float | `oreDictName` | Exact item+metadata comparison today |
 | Default Server language | locale code | Drives the hand-written `FILang` table |
-| Disable Update Checker Message | boolean | Originally only hid the message; the HTTP requests still ran |
+| Disable FloatingItems Update Check | boolean | Disables both the GitHub request and the message; the old `...Checker Message` key is migrated |
 
 ---
 
@@ -76,7 +76,7 @@ localisation or API contract; **P3** = polish.
 | **B-01** | P0 | `FIConfig.java:58-63, 96-102` | **Fixed.** A malformed entry no longer aborts `syncConfig`; entries are parsed independently, invalid entries are logged/skipped, and a backend failure resets all fields to safe defaults. | `FIConfigTest.oneMalformedEntryDoesNotDiscardTheRestOfTheConfig`, `allInvalidEntriesLeaveEmptyBlacklistsButKeepOtherProperties`, `parserRejectsMalformedAndUnknownEntries` |
 | **B-02** | P0 | `FIConfig.java:128-130`; `EntityItemMixin.java:43-46` | **Fixed.** Unknown ids are kept through preInit (so another mod can register the item later), then `resolveItems()` in postInit drops anything still unresolved. The mixin also skips null entries/null items defensively. | `FIConfigTest.unknownItemIdIsRejected...`, `resolveItemsRemovesOnlyUnresolvedEntries`, parser tests; game phase 0 null-item entry |
 | **B-03** | P1 | `FIConfig.java:126-129` | **Fixed.** The metadata suffix is optional and defaults to 0; malformed suffixes are rejected without throwing. | `FIConfigTest.missingMetadataDefaultsToZero`, `parserAcceptsOptionalMetadataAndWhitespace` |
-| **B-04** | P1 | `FIUpdateHandler.java:29-45, 109-128`; `FloatingItems.java:48-49` | **Fixed.** The check runs on a daemon worker instead of `preInit`, uses bounded connect/read timeouts, `try`-with-resources and UTF-8, and clears state before applying a result. | `FIUpdateHandlerTest` opt-outs, `processUpdateData` branches, local-HTTP `readFirstLine` success/empty/error |
+| **B-04** | P1 | `FIUpdateHandler.java:29-45, 109-128`; `FloatingItems.java:48-49` | **Fixed.** The check runs on a daemon worker instead of `preInit`, uses bounded connect/read timeouts and a single redirect request to the GitHub `releases/latest` URL, and clears state before applying a result. | `FIUpdateHandlerTest` opt-outs, `processUpdateData` branches, local-HTTP release-redirect success/error cases |
 | **B-05** | P2 | `FIConfig.java:164-198` | `equals` is overridden without `hashCode`, violating the Object contract. Two equal blacklist items hash differently, so a `HashSet`/`HashMap` of config items would misbehave. The long commented-out implementation is also dead code. | `FIConfigTest.equalItemsHaveEqualHashCodes` (`@Ignore`) |
 | **B-06** | P1 | `EntityItemMixin.java:38-39` | The mixin calls `getEntityItem().getItem().onEntityItemUpdate(...)`; vanilla `EntityItem.onUpdate` calls the same hook at its own head (`EntityItem.java:91-100`). Every item's hook runs **twice per tick**. Items such as Botania/Thaumcraft-style water transformations can double-fire, and hooks with side effects or counters are wrong. | Game test `anEntityItemUpdateIsCalledOncePerTick` (xfail) |
 | **B-07** | P1 | `EntityItemMixin.java:41-69` | The per-metadata item check sets `shouldFloat = true` when the item matches but the metadata differs. Both the registry blacklist and the ore-dictionary blacklist are guarded by `!shouldFloat`, so they are skipped. A `{280}(1)` entry therefore lets a stick with meta 0 float even though the stick ID is in the registry blacklist. | Game test `aRegistryBlacklistIsNotShadowed...` (xfail) |
@@ -97,9 +97,9 @@ localisation or API contract; **P3** = polish.
 | **B-22** | P3 | `EntityItemMixin.java:38-39, 45-48, 61-63, 77-85` | **Partly fixed in the P0 pass.** The stack is null-checked and cached before the hook, then re-read once after the hook; the remaining blacklist checks use that post-hook stack. | Covered indirectly by B-02/B-06 |
 | **B-23** | P2 | `FIConfig.java:23-31`; `EntityItemMixin.java:41-100` | The blacklist arrays are public mutable static fields, read on the server tick while `syncConfig`/the config GUI can replace them on another thread. Array references are atomic, but the set of fields can be observed at different generations, and a caller can mutate the arrays in place. Use an immutable snapshot object and a volatile reference/generation counter. | Static review |
 | **B-24** | P3 | `FIConfig.java:197` | `equals` compares the `Item` reference in addition to registry id and metadata. Registry ids are unique, but after a registry remap/reload two `FIConfigItem`s that print the same `toString()` can compare unequal. Use the registry name/id as the identity and add `hashCode`. | `FIConfigTest.equalsIsReflexiveSymmetricAndTypeSafe` |
-| **B-25** | P3 | `FloatingItems.java:43-50` | The update message is sent on every login, every time, and the server language is global. There is no “show once per player”, no per-player locale, and no config to turn off the check without also disabling the message. | Static review |
-| **B-26** | P3 | `FIUpdateHandler.java:80` | `latestVersion.equals(FIReference.VERSION)` is an exact string comparison. A remote value with whitespace, a `v` prefix, or a build-suffix mismatch produces a false “old version” message. There is no semantic-version comparison and no `trim()`. | Static review |
-| **B-27** | P3 | `FIUpdateHandler.java:31-33, 40-42` | `Scanner` is not closed on the exception path and uses the platform default charset. Use `try`-with-resources and an explicit UTF-8 charset. | Static review |
+| **B-25** | P3 | `FloatingItems.java:43-50` | The update message is sent on every login, every time, and the server language is global. There is no “show once per player” and no per-player locale; the new config disables the whole check rather than just the notification. | Static review |
+| **B-26** | P3 | `FIUpdateHandler.java:80` | Version comparison is exact after trimming and stripping a leading `v`/`V`. A build suffix or a non-`v` release prefix still produces a false “old version” message; there is no semantic-version comparison. | Static review |
+| **B-27** | P3 | `FIUpdateHandler.java:31-33, 40-42` | **Fixed in the P0 pass.** The `Scanner` text-file path was removed with the GitHub redirect rewrite; `HttpURLConnection` is disconnected in `finally`. | Static review + `FIUpdateHandlerTest` |
 | **B-28** | P3 | `FIConfig.java:105-108` | `getConfigElements()` dereferences `config` without a null check. It is only called from the GUI after `preInit`, but a client-side test or a reload race can NPE. | Static review |
 | **B-29** | P3 | `FIConfig.java:56, 71, 79, 84` | `prop.comment = ...` is assigned after `Configuration.get` returns an existing property; the assignment does not mark the configuration dirty. On an existing file whose comments are missing, the comments are not written until some other value changes. | Static review of `Configuration.get`/`hasChanged` |
 
@@ -108,7 +108,7 @@ localisation or API contract; **P3** = polish.
 | ID | Change |
 |---|---|
 | B-01/B-02/B-03 | `FIConfigItem.parse(String)` validates the shape and optional metadata (default 0); item resolution is lazy so a mod that registers later in preInit is not lost. `FIConfig.syncConfig` parses each entry independently, logs/skips malformed entries, always assigns every blacklist array, and resets to safe defaults if the backend fails. `FIConfig.resolveItems()` runs in postInit (and after config reloads) to drop ids that still do not resolve. The mixin skips `null` entries and `null` items defensively. |
-| B-04/B-18 | `FIUpdateHandler` now runs the check on a daemon worker, uses `HttpURLConnection` with 5 s connect/read timeouts and try-with-resources, reads UTF-8, exposes `processUpdateData` for branch tests, and clears state before applying a result. `FloatingItems.onPlayerLogin` guards the disabled/current cases and adds each non-null message independently. |
+| B-04/B-18 | `FIUpdateHandler` runs the check on a daemon worker, resolves the latest GitHub release tag from the `releases/latest` redirect with 5 s connect/read timeouts, exposes `processUpdateData` for branch tests, and clears state before applying a result. `FloatingItems.onPlayerLogin` guards the disabled/current cases and adds each non-null message independently. |
 | B-10 | `FloatingItems.preInit` registers on `FMLCommonHandler.instance().bus()` instead of `MinecraftForge.EVENT_BUS`. |
 | B-19 | `FIReference.DEPENDENCIES` now declares `required-after:unimixins` (no trailing separator), and `mcmod.info` lists `unimixins` in `requiredMods`. |
 
@@ -232,7 +232,7 @@ The remaining game-test xfails are B-06/B-07/B-08/B-09. The remaining `@Ignore` 
 |---|---|
 | `addon.gradle.kts` | Applies JaCoCo, configures `Test` on a Java 8 toolchain, extends the test classpaths with `compileOnly` (Minecraft/Forge), creates `build/reports/jacoco/test`, enforces a line/branch floor, creates the `gameTest` source set, and registers `prepareGameTestServer`/`gameTestServer`/`jacocoGameTestReport`. |
 | `dependencies.gradle` | JUnit 4.13.2, Mockito 4.11.0, mockito-inline. Mockito 4 is the newest line that runs on Java 8; mockito-inline allows final Minecraft classes to be mocked. |
-| `src/test/java/...` | 8 test classes / 65 tests (6 `@Ignore` remaining-bug markers). |
+| `src/test/java/...` | 8 test classes / 69 tests (6 `@Ignore` remaining-bug markers). |
 | `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus a 5-phase assertion suite. |
 | `.github/workflows/game-test.yml` | Installs Java 8 + 25, runs `./gradlew test gameTestServer`, checks the `FLOATINGITEMS_GAMETEST_OK` marker, uploads the server log and coverage. |
 | `README.md` | Testing commands and the xfail policy. |
@@ -247,7 +247,7 @@ The remaining game-test xfails are B-06/B-07/B-08/B-09. The remaining `@Ignore` 
 | `FloatingItemsMetadataTest` | Reads the `@Mod` annotation and the shipped `mcmod.info` back, checks the GUI factory class name and the UniMixins requirement. |
 | `MixinsTest` | One early mixin named `EntityItemMixin`, phase EARLY, early config path. |
 | `EntityItemMixinTest` | The pure `setUnderWaterMovement` arithmetic (damping, threshold, negative motion) via reflection. |
-| `FIUpdateHandlerTest` | System-property/config opt-outs, current/older/ended/null version branches, and `readFirstLine` success/empty/error against a local `HttpServer`. |
+| `FIUpdateHandlerTest` | System-property/config opt-outs, current/older/ended/null version branches, and GitHub `releases/latest` redirect parsing (relative/absolute/encoded/error) against a local `HttpServer`. |
 | `FloatingItemsEventTest` | Login with no/one/both update messages, disabled checker and current version; verifies the null-message guard with a mocked `EntityPlayerMP`. |
 | `MinecraftTestBootstrap` | Injects a fake `minecraft:stick` into the real `RegistryNamespaced` maps without calling FML's `GameData.addPrefix`, which needs a `LaunchClassLoader`. Also initialises `FMLInjectionData.minecraftHome` so `Configuration` can be constructed headlessly. |
 
@@ -282,9 +282,9 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 - In-game report: `build/reports/jacoco/gameTest/html`, generated after `gameTestServer` via
   `jacocoGameTestReport`. The JaCoCo agent is run with `classdumpdir=build/jacoco/gameTestClasses`, so the report
   reads exactly the bytes the agent instrumented. It is not merged into the unit report because a Forge 1.7.10
-  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 111/264 lines (42.0%)
-  and 26/102 branches (25.5%).
-- Regression floor: 65% line / 70% branch. The measured unit baseline is 80.2% line / 78.5% branch. The floor is a
+  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 119/300 lines (39.7%)
+  and 29/130 branches (22.3%).
+- Regression floor: 65% line / 70% branch. The measured unit baseline is 79.8% line / 77.8% branch. The floor is a
   guard, not a target; the mixin and dead `CoreMod` remain largely uncovered, and the update handler is covered by
   its opt-out/result/HTTP branches but not by a live network check.
 
@@ -389,15 +389,15 @@ All paths are under `build/rfg/minecraft-src/java` (RFG-decompiled 1.7.10 source
 
 | Measurement | Value |
 |---|---|
-| Unit tests | 65 run, 6 skipped (`@Ignore`), 0 failures |
+| Unit tests | 69 run, 6 skipped (`@Ignore`), 0 failures |
 | Game-test phases | 5 phases × 120 ticks, plus the synchronous config-bus check |
 | Game-test assertions | 11 checks; 4 documented known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
 | Game-test run time | ~47 s on the development machine (including Forge startup) |
-| JaCoCo unit line | 574/716 = 80.2% |
-| JaCoCo unit branch | 421/536 = 78.5% |
-| JaCoCo unit instruction | 1,871/2,292 = 81.6% |
+| JaCoCo unit line | 600/752 = 79.8% |
+| JaCoCo unit branch | 439/564 = 77.8% |
+| JaCoCo unit instruction | 1,956/2,416 = 81.0% |
 | JaCoCo floor | 65% line / 70% branch |
-| JaCoCo game-test run | 111/264 lines = 42.0%, 26/102 branches = 25.5% (short physics-only run) |
+| JaCoCo game-test run | 119/300 lines = 39.7%, 29/130 branches = 22.3% (short physics-only run) |
 | Test JVM | Java 8 toolchain (Temurin 8.0.432) |
 
 The game test prints per-phase Y values (`waterY`, `airY`, `lavaY`, `negativeY`) and the observed

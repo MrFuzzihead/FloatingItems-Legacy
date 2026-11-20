@@ -47,7 +47,7 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 65 headless JUnit 4 tests, 6 known-bug skips (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 69 headless JUnit 4 tests, 6 known-bug skips (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
 | `./gradlew gameTestServer` | boots a real dedicated server, runs 11 in-game checks (4 remaining known bugs are xfailed), then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
@@ -70,7 +70,7 @@ the remaining findings are tracked there.
 | Blacklist of All Items regardless of Metadata | item ID |
 | Blacklist of OreDict Entries that should not Float | ore-dictionary name |
 | Default Server language | locale code, e.g. `en_us` |
-| Disable FloatingItems Update Checker Message | boolean |
+| Disable FloatingItems Update Check | boolean - disables both the GitHub request and the message |
 
 See [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) for the full review, the bug catalogue and the improvement plan.
 
