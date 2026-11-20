@@ -1,0 +1,319 @@
+// Extra build configuration for the GTNH/RFG build.
+//
+// This file adds the verification harness that the mod did not have before:
+//
+//   * JUnit 4 + Mockito unit tests (src/test/java), run on a Java 8 toolchain because the mod targets Java 8
+//     bytecode and Mockito 4.x is the newest Mockito that still runs there;
+//   * JaCoCo line/branch reports plus a regression floor wired into `check`;
+//   * a non-shipped in-game test mod (src/gameTest/java) and a `gameTestServer` task that boots a real dedicated
+//     server, runs assertions against real EntityItem physics, and exits with the result.
+//
+// The layout and the reasoning mirror MrFuzzihead/PeripheralsPlusPlus and MrFuzzihead/OpenPeripheral. The game
+// test mod is only added to the classpath for `gameTestServer` (or `-PgameTest`), so it never reaches the
+// published jar.
+
+import java.math.BigDecimal
+
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Classpath
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.process.CommandLineArgumentProvider
+import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
+import org.gradle.testing.jacoco.tasks.JacocoReport
+
+/**
+ * Attaches the JaCoCo agent to a forked game.
+ *
+ * <p>
+ * `Test` tasks get the agent from the jacoco plugin; a `JavaExec` run task needs it as an explicit `-javaagent`
+ * argument. The agent jar is declared as a `@Classpath` input so Gradle resolves it with the task instead of at
+ * configuration time (which keeps the configuration cache happy).
+ * </p>
+ */
+abstract class JacocoAgentArgumentProvider : CommandLineArgumentProvider {
+
+    @get:Classpath
+    abstract val agent: ConfigurableFileCollection
+
+    @get:Input
+    abstract val destFile: Property<String>
+
+    @get:Input
+    abstract val includes: Property<String>
+
+    @get:Input
+    abstract val classDumpDir: Property<String>
+
+    override fun asArguments(): Iterable<String> {
+        val jar = extractAgent()
+        return listOf(
+            "-javaagent:" + jar.absolutePath +
+                "=destfile=" + destFile.get() +
+                ",append=false,dumponexit=true" +
+                ",includes=" + includes.get() +
+                ",classdumpdir=" + classDumpDir.get()
+        )
+    }
+
+    /**
+     * The `jacocoAgent` configuration resolves to the JaCoCo *distribution* jar, which has no `Premain-Class` of
+     * its own: the real agent is `jacocoagent.jar` inside it. Gradle's own JaCoCo support unpacks it the same way.
+     */
+    private fun extractAgent(): java.io.File {
+        val distribution = agent.files.single()
+        val target = java.io.File(destFile.get()).parentFile.resolve("jacocoagent.jar")
+        java.util.zip.ZipFile(distribution).use { zip ->
+            val entry = zip.getEntry("jacocoagent.jar") ?: return distribution
+            target.parentFile?.mkdirs()
+            zip.getInputStream(entry).use { input -> target.outputStream().use { output -> input.copyTo(output) } }
+        }
+        return target
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Unit tests + coverage
+// ---------------------------------------------------------------------------------------------------------
+
+apply(plugin = "jacoco")
+
+project.extensions.configure(JacocoPluginExtension::class.java) {
+    toolVersion = "0.8.16"
+}
+
+tasks.withType<Test>().configureEach {
+    extensions.configure(JacocoTaskExtension::class.java) {
+        isEnabled = true
+    }
+    // The mod is Java 8 bytecode. Running the suite on a Java 8 toolchain keeps the test JVM in the same
+    // generation as the target and avoids Mockito/ByteBuddy surprises on Java 21+.
+    javaLauncher.set(
+        project.extensions.getByType(JavaToolchainService::class.java).launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(8))
+        }
+    )
+    testLogging {
+        events("failed", "skipped")
+        exceptionFormat = TestExceptionFormat.FULL
+        showStackTraces = true
+    }
+}
+
+// The production classes implement compileOnly Minecraft/Forge supertypes (FIConfig touches Configuration and
+// Item, the mixin touches Entity/World). Tests cannot even name those classes unless compileOnly is on the test
+// classpath as well. `implementation`/`api` already reach testCompileClasspath by default; this fills the rest.
+val mainSourceSet = project.extensions.getByType(SourceSetContainer::class.java).getByName("main")
+configurations.named("testCompileClasspath") {
+    extendsFrom(configurations.getByName("compileOnly"))
+}
+configurations.named("testRuntimeClasspath") {
+    extendsFrom(configurations.getByName("compileOnly"))
+}
+
+// Only the unit-test run feeds the default report. The in-game run writes build/jacoco/gameTest.exec (see the
+// agent below), but a Forge 1.7.10 dev launch round-trips classes through the LaunchClassLoader, so the class ids
+// in that file cannot be matched against the class files on disk. The separate jacocoGameTestReport task below
+// uses the agent's class dump instead.
+val jacocoExecFiles = project.files(project.layout.buildDirectory.file("jacoco/test.exec"))
+
+fun jacocoClassDirs() = project.files(mainSourceSet.output.classesDirs).asFileTree.matching {
+    // Generated version holder and the client-only config GUI cannot be exercised by a headless unit test.
+    // Everything else is measured, including the mixin and the update handler, so the report stays honest.
+    exclude("net/coolsimulations/FloatingItems/Tags.class", "net/coolsimulations/FloatingItems/FIConfigGUI*.class")
+}
+
+tasks.named<JacocoReport>("jacocoTestReport") {
+    group = "verification"
+    description = "Generates HTML and XML JaCoCo reports from the unit-test run"
+    dependsOn(tasks.named("test"))
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    classDirectories.setFrom(jacocoClassDirs())
+    sourceDirectories.setFrom(mainSourceSet.allJava.srcDirs)
+    executionData.setFrom(jacocoExecFiles)
+}
+
+tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+    group = "verification"
+    description = "Fails the build when unit-test coverage drops below the configured regression floor"
+    dependsOn(tasks.named("test"))
+
+    classDirectories.setFrom(jacocoClassDirs())
+    sourceDirectories.setFrom(mainSourceSet.allJava.srcDirs)
+    executionData.setFrom(jacocoExecFiles)
+
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                // A regression guard at the measured baseline (70.5% line / 77.9% branch when this harness landed),
+                // not a target. Raise it as the analysis items in CODEBASE_ANALYSIS.md are fixed and covered.
+                minimum = BigDecimal("0.65")
+            }
+            limit {
+                counter = "BRANCH"
+                value = "COVEREDRATIO"
+                minimum = BigDecimal("0.70")
+            }
+        }
+    }
+}
+
+tasks.named("check").configure {
+    dependsOn(tasks.named("jacocoTestCoverageVerification"))
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// In-game test mod (never shipped)
+// ---------------------------------------------------------------------------------------------------------
+
+val gameTestSourceSet = project.extensions.getByType(SourceSetContainer::class.java).create("gameTest")
+
+configurations.getByName(gameTestSourceSet.compileClasspathConfigurationName)
+    .extendsFrom(configurations.getByName("compileClasspath"))
+configurations.getByName(gameTestSourceSet.runtimeClasspathConfigurationName)
+    .extendsFrom(configurations.getByName("runtimeClasspath"))
+gameTestSourceSet.compileClasspath += mainSourceSet.output
+gameTestSourceSet.compileClasspath += mainSourceSet.compileClasspath
+gameTestSourceSet.runtimeClasspath += mainSourceSet.output
+gameTestSourceSet.runtimeClasspath += mainSourceSet.runtimeClasspath
+// The game-test mod is plain Java 8. Leaving Jabel's compiler plugin on this source set's classpath makes javac
+// auto-load it through ServiceLoader, which then needs ByteBuddy's agent (not present here).
+gameTestSourceSet.compileClasspath = gameTestSourceSet.compileClasspath
+    .filter { !it.name.contains("jabel") }
+
+val isGameTestRun = project.hasProperty("gameTest") ||
+    gradle.startParameter.taskNames.any { it.contains("gameTestServer") }
+
+if (isGameTestRun) {
+    // Only our package is instrumented. The file is dumped when the game exits, so a crashed or hung run simply
+    // leaves no data behind. It is NOT merged into jacocoTestReport (see the note on jacocoGameTestReport).
+    val jacocoProvider = objects.newInstance(JacocoAgentArgumentProvider::class.java)
+    jacocoProvider.agent.from(configurations.named("jacocoAgent"))
+    jacocoProvider.destFile.set(
+        project.layout.buildDirectory.file("jacoco/gameTest.exec")
+            .map { it.asFile.absolutePath }
+    )
+    jacocoProvider.includes.set("net/coolsimulations/FloatingItems/*")
+    jacocoProvider.classDumpDir.set(
+        project.layout.buildDirectory.dir("jacoco/gameTestClasses")
+            .map { it.asFile.absolutePath }
+    )
+
+    tasks.withType<JavaExec>().configureEach {
+        if (name.startsWith("runServer") || name.startsWith("runClient")) {
+            classpath += gameTestSourceSet.output
+            // Read by the game-test mod. `fml.queryResult` answers FML's "a world references missing mods,
+            // continue anyway?" prompt up front so CI never blocks on stdin.
+            systemProperty("floatingitems.gameTest", "true")
+            systemProperty("floatingitems.skipUpdateCheck", "true")
+            systemProperty("fml.queryResult", "confirm")
+            jvmArgumentProviders.add(jacocoProvider)
+        }
+    }
+}
+
+tasks.named("check").configure {
+    dependsOn(gameTestSourceSet.classesTaskName)
+}
+
+// Deterministic run directory: accept the EULA, use a throwaway flat world and disable the vanilla watchdog.
+// Everything lives under run/server (gitignored). This task runs before every gameTestServer invocation.
+tasks.register("prepareGameTestServer") {
+    group = "verification"
+    description = "Prepares run/server with eula.txt and deterministic server.properties for the game test"
+
+    val runDirectory = project.layout.projectDirectory.dir(
+        (findProperty("runServerWorkingDirectory") as String?) ?: "run/server"
+    )
+    val eulaFile = runDirectory.file("eula.txt").asFile
+    val propertiesFile = runDirectory.file("server.properties").asFile
+    val worldDirectory = runDirectory.dir("gameTestWorld").asFile
+
+    doLast {
+        eulaFile.parentFile.mkdirs()
+        eulaFile.writeText("eula=true\n")
+        propertiesFile.writeText(
+            """
+            # Written by ./gradlew gameTestServer - do not edit; the task rewrites this file.
+            level-name=gameTestWorld
+            level-type=FLAT
+            online-mode=false
+            allow-nether=false
+            spawn-protection=0
+            difficulty=0
+            max-tick-time=-1
+            view-distance=6
+            motd=FloatingItems game test
+            """.trimIndent() + "\n"
+        )
+        worldDirectory.deleteRecursively()
+    }
+}
+
+tasks.register("gameTestServer") {
+    group = "verification"
+    description = "Boots a dedicated server, runs the in-game FloatingItems tests, and exits with their result"
+    dependsOn("prepareGameTestServer")
+    dependsOn("runServer")
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// In-game coverage report
+// ---------------------------------------------------------------------------------------------------------
+// A forked dev launch writes build/jacoco/gameTest.exec, but the LaunchClassLoader rewrites every class, so the
+// on-disk class ids do not match. The agent is asked to dump the bytes it instrumented
+// (`classdumpdir=build/jacoco/gameTestClasses`), and that dump is what this report reads. This keeps the in-game
+// number without relying on RFB's dump and without the "classes do not match" warnings. The task is not wired into `check`.
+
+tasks.register<JacocoReport>("jacocoGameTestReport") {
+    group = "verification"
+    description = "Reports coverage from the in-game run using the classes the JaCoCo agent instrumented"
+
+    val execFile = project.layout.buildDirectory.file("jacoco/gameTest.exec").get().asFile
+    // No `onlyIf`: a script closure cannot be stored in the configuration cache. Empty execution data makes
+    // JaCoCo skip the task, which is the same outcome.
+    executionData.setFrom(project.files(execFile).filter { it.exists() })
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+        xml.outputLocation.set(project.layout.buildDirectory.file("reports/jacoco/gameTest/jacocoGameTestReport.xml"))
+        html.outputLocation.set(project.layout.buildDirectory.dir("reports/jacoco/gameTest/html"))
+    }
+
+    classDirectories.setFrom(
+        project.layout.buildDirectory.dir("jacoco/gameTestClasses").map { dir ->
+            project.files(dir).asFileTree.matching {
+                include("net/coolsimulations/FloatingItems/**")
+                exclude(
+                    "net/coolsimulations/FloatingItems/Tags.class",
+                    "net/coolsimulations/FloatingItems/FIConfigGUI*.class",
+                    // The game-test mod itself is not part of the mod.
+                    "net/coolsimulations/FloatingItems/gametest/**"
+                )
+            }
+        }
+    )
+    sourceDirectories.setFrom(mainSourceSet.allJava.srcDirs)
+}
+
+tasks.named("gameTestServer") {
+    finalizedBy(tasks.named("jacocoGameTestReport"))
+}

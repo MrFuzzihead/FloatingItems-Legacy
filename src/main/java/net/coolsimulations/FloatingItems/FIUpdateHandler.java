@@ -20,6 +20,12 @@ public class FIUpdateHandler {
 
     public static void init() {
 
+        // The update checker is a best-effort service. Respect the existing config switch, and allow automation
+        // (unit/CI game tests) to skip the blocking network calls before a world exists.
+        if (Boolean.getBoolean("floatingitems.skipUpdateCheck") || FIConfig.disableUpdateCheck) {
+            return;
+        }
+
         try {
             URL url = new URL("https://coolsimulations.net/mcmods/floatingitems/versionchecker17.txt");
             Scanner s = new Scanner(url.openStream());

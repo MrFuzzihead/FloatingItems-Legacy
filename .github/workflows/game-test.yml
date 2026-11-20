@@ -1,0 +1,70 @@
+name: Game tests
+
+# The reusable GTNH build workflow runs `check` (unit tests, Spotless/Checkstyle, JaCoCo floor and game-test
+# compilation). This workflow adds the part `check` cannot do on its own: a real dedicated server, real Forge
+# startup and real EntityItem physics. `./gradlew gameTestServer` writes eula.txt/server.properties itself and
+# exits with the game test's result.
+
+on:
+  pull_request:
+    branches: [ master, main ]
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  game-test:
+    name: Unit tests + dedicated-server game tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # The Gradle daemon follows gradle/gradle-daemon-jvm.properties (Java 25). Install Java 8 too: the test
+      # suite runs on a Java 8 toolchain, matching the mod's bytecode target and Mockito 4.x.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Run unit tests and the in-game tests
+        run: ./gradlew test gameTestServer --stacktrace
+
+      - name: Check the game-test marker
+        # The mod prints FLOATINGITEMS_GAMETEST_OK only after every non-xfail assertion passes and every
+        # documented known bug is still present. A crash mid-run therefore fails here instead of silently
+        # passing, and an XPASS fails the Gradle task before this step.
+        run: |
+          ls -l run/server/logs/ || true
+          test -n "$(ls run/server/logs/*.log 2>/dev/null)" || { echo "no server log was written"; exit 1; }
+          grep -hE "\[FI-GAMETEST\] [0-9]+/[0-9]+ checks passed" run/server/logs/*.log || true
+          grep -hq "FLOATINGITEMS_GAMETEST_OK" run/server/logs/*.log
+          ! grep -hq "FLOATINGITEMS_GAMETEST_FAILED" run/server/logs/*.log
+
+      - name: Upload the server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: floatingitems-game-test-log
+          path: run/server/logs/
+          if-no-files-found: warn
+
+      - name: Upload the coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: floatingitems-coverage
+          path: build/reports/jacoco/
+          if-no-files-found: warn
