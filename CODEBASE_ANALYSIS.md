@@ -205,8 +205,8 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | **R-09** | Move the inject from `HEAD` to after vanilla's `onEntityItemUpdate` check (or use a `@Redirect`/`@ModifyVariable` on the hook call) so the hook is called exactly once. | **Applied in the P1 pass:** a `@Redirect` wraps the single vanilla call and preserves its early return. |
 | **R-10** | Remove `CoreMod` (D-01, done) and other dead items, while keeping the manifest-required empty late config (D-08) and public compatibility shims. | Smaller jar without breaking addons or the mixin manifest. |
 | **R-11** | Add `@SideOnly(Side.CLIENT)` to `FIConfigGUI`/inner class and move GUI-only code to a client package if the package rename is acceptable. | **Applied:** both GUI classes are client-only; the inner class is annotated as well. |
-| **R-12** | Add a public API (`FloatingItemsAPI`/`IFloatingItem`) if addons are expected to customise floating. Keep the current static config accessors deprecated. | **Applied:** added `net.coolsimulations.FloatingItems.api` with `FloatingItemsAPI`, `BlacklistSnapshot` and `BlacklistEntry`; `apiPackage = api` and `apiJar` are enabled. The old nested types remain deprecated wrappers. |
-| **R-13** | Rename the root package from `net.coolsimulations.FloatingItems` to `net.coolsimulations.floatingitems` (or add a compatibility facade). | Java package convention; this is a breaking change for addons, so schedule it with R-12. |
+| **R-12** | Add a public API (`FloatingItemsAPI`/`IFloatingItem`) if addons are expected to customise floating. Keep the current static config accessors deprecated. | **Applied:** added `net.coolsimulations.floatingitems.api` with `FloatingItemsAPI`, `BlacklistSnapshot` and `BlacklistEntry`; `apiPackage = api` and `apiJar` are enabled. The old nested types remain deprecated wrappers. |
+| **R-13** | Rename the root package from `net.coolsimulations.FloatingItems` to `net.coolsimulations.floatingitems` (or add a compatibility facade). | **Applied:** source, tests, mixin config, coremod path, `modGroup` and JaCoCo filters now use the lowercase root package. No compatibility facade is shipped because a scan of all 238 external mod jars in the reference instance found no references to the old package or its classes. |
 | **R-14** | Add `hashCode`, use `Objects.equals`, and make `FIConfigItem` immutable. | **Applied for B-05/B-24:** registry/metadata are final and `equals`/`hashCode` match. |
 | **R-15** | Keep `FIConfigGUI`'s non-interface methods as deprecated shims for addons; only the 1.7.10 interface is used internally. | D-05 compatibility. |
 
@@ -241,18 +241,18 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 1. **UniMixins is declared now** (B-19 fixed). `FIReference.DEPENDENCIES` contains `required-after:unimixins`, and
    `mcmod.info` has `"requiredMods": ["unimixins"]`. The built jar still has `TweakClass:
    org.spongepowered.asm.launch.MixinTweaker`, `MixinConfigs: mixins.floatingitems.json` and `FMLCorePlugin:
-   net.coolsimulations.FloatingItems.mixins.EarlyMixinsLoader`.
+   net.coolsimulations.floatingitems.mixins.EarlyMixinsLoader`.
 2. **One coremod** (D-01 fixed). `EarlyMixinsLoader` is the registered coremod and implements `IEarlyMixinLoader`; the unused `core/CoreMod` was removed. The empty late mixin config (D-08) is intentionally kept because the manifest references it.
 3. **The dependency string is clean** (D-13 fixed). It no longer ends with a separator.
 4. **The accepted Minecraft range** is `[1.7, 1.7.10]`. FML compares the target version as a version; `1.7.10` is
    inside the range, but `[1.7.10]` would express the intent more clearly. The mod uses only 1.7.10 APIs.
-5. **The `mcmod.info` description** says “A small server-side mod…”. That is accurate, but the README advertises a
-   “Dev release” and addons; the public API is only `FIConfig`/`FILang`, which are not documented. If addons are a
-   supported use case, define and document the API (R-12) before changing the package (R-13).
+5. **The `mcmod.info` description** says “A small server-side mod…”. That is accurate. The README no longer
+   advertises addons; the read-only API (R-12) is the supported surface and ships in the `-api` classifier. The root
+   package was renamed under R-13.
 6. **The build has no test dependencies until this pass.** `dependencies.gradle` now adds JUnit 4.13.2,
    Mockito 4.11.0 and mockito-inline; `addon.gradle.kts` adds JaCoCo and the game-test source set. The GTNH reusable
    workflow already runs `check`; the new `game-test.yml` runs the dedicated server separately.
-7. **API artifact**: `apiPackage = api` is set and `./gradlew apiJar` produces the `-api` classifier containing only the API package. The API is intentionally read-only; the root package rename (R-13) remains on hold.
+7. **API artifact**: `apiPackage = api` is set and `./gradlew apiJar` produces the `-api` classifier containing only `net.coolsimulations.floatingitems.api`. The API is intentionally read-only. The root package rename (R-13) is applied; the old uppercase package is not retained as a facade because no external mod in the reference instance referenced it.
 8. **Configuration cache**: `org.gradle.configuration-cache = true` is enabled. The new build script was written
    with task inputs (`@Classpath`, `@Input`) and no configuration-time resolution for the JaCoCo agent; `check`
    and `gameTestServer` were run successfully with the cache enabled.
@@ -365,7 +365,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 is also co
 ### P3 — cleanup / features (cleanup done; feature backlog remains)
 
 14. D-03/D-09/D-11/D-12/D-15 cleanup done; D-08 intentionally kept; D-02/D-04/D-05 retained as deprecated public API shims.
-15. R-01/R-02/R-03/R-04/R-05/R-06/R-07/R-08/R-09/R-11/R-12/R-14/R-15 are applied. R-13 (root package rename) remains on hold.
+15. R-01/R-02/R-03/R-04/R-05/R-06/R-07/R-08/R-09/R-11/R-12/R-13/R-14/R-15 are applied.
 16. F-01 and the API part of F-08 are applied. F-02…F-17 remain, in particular whitelist mode, events and per-player locale.
 
 ---

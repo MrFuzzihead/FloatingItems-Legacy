@@ -128,7 +128,7 @@ val jacocoExecFiles = project.files(project.layout.buildDirectory.file("jacoco/t
 fun jacocoClassDirs() = project.files(mainSourceSet.output.classesDirs).asFileTree.matching {
     // Generated version holder and the client-only config GUI cannot be exercised by a headless unit test.
     // Everything else is measured, including the mixin and the update handler, so the report stays honest.
-    exclude("net/coolsimulations/FloatingItems/Tags.class", "net/coolsimulations/FloatingItems/FIConfigGUI*.class")
+    exclude("net/coolsimulations/floatingitems/Tags.class", "net/coolsimulations/floatingitems/FIConfigGUI*.class")
 }
 
 tasks.named<JacocoReport>("jacocoTestReport") {
@@ -209,7 +209,7 @@ if (isGameTestRun) {
         project.layout.buildDirectory.file("jacoco/gameTest.exec")
             .map { it.asFile.absolutePath }
     )
-    jacocoProvider.includes.set("net/coolsimulations/FloatingItems/*")
+    jacocoProvider.includes.set("net/coolsimulations/floatingitems/*")
     jacocoProvider.classDumpDir.set(
         project.layout.buildDirectory.dir("jacoco/gameTestClasses")
             .map { it.asFile.absolutePath }
@@ -311,12 +311,12 @@ tasks.register<JacocoReport>("jacocoGameTestReport") {
     classDirectories.setFrom(
         project.layout.buildDirectory.dir("jacoco/gameTestClasses").map { dir ->
             project.files(dir).asFileTree.matching {
-                include("net/coolsimulations/FloatingItems/**")
+                include("net/coolsimulations/floatingitems/**")
                 exclude(
-                    "net/coolsimulations/FloatingItems/Tags.class",
-                    "net/coolsimulations/FloatingItems/FIConfigGUI*.class",
+                    "net/coolsimulations/floatingitems/Tags.class",
+                    "net/coolsimulations/floatingitems/FIConfigGUI*.class",
                     // The game-test mod itself is not part of the mod.
-                    "net/coolsimulations/FloatingItems/gametest/**"
+                    "net/coolsimulations/floatingitems/gametest/**"
                 )
             }
         }
