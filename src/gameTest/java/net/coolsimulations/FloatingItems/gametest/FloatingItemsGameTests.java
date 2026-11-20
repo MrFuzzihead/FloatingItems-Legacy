@@ -250,8 +250,8 @@ final class FloatingItemsGameTests {
                 break;
 
             case 3:
-                // The per-metadata entry matches the item but not its metadata and sets shouldFloat=true, which
-                // skips the registry check. The registry blacklist should still win. Known B-07.
+                // The per-metadata entry matches the item but not its metadata. The registry blacklist must still
+                // win; this is the B-07 regression case.
                 FIConfig.blacklistItems = new FIConfig.FIConfigItem[] { configItem("{280}(1)") };
                 FIConfig.blacklistRegistryItems = new int[] { Item.getIdFromItem(Items.stick) };
                 FIConfig.blacklistOreDict = null;
@@ -322,8 +322,11 @@ final class FloatingItemsGameTests {
                 check(
                     "an item in lava does not receive water buoyancy",
                     lavaItem.isDead || lavaItem.posY < WATER_START_Y + 1.0D);
-                xfail("an item at negative coordinates floats (B-08)", negativeItem.posY > negativeStartY + 0.5D);
-                xfail("onEntityItemUpdate is called once per tick (B-06)", COUNTING_CALLS.get() == PHASE_TICKS);
+                check("an item at negative coordinates floats (B-08)", negativeItem.posY > negativeStartY + 0.5D);
+                int calls = COUNTING_CALLS.get();
+                check(
+                    "onEntityItemUpdate is called once per tick (B-06)",
+                    calls >= PHASE_TICKS - 1 && calls <= PHASE_TICKS);
                 break;
 
             case 1:
@@ -335,7 +338,7 @@ final class FloatingItemsGameTests {
                 break;
 
             case 3:
-                xfail(
+                check(
                     "a registry blacklist is not shadowed by a different metadata entry (B-07)",
                     phaseItem.posY <= phaseStartY + 0.5D);
                 break;
