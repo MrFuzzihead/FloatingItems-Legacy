@@ -420,9 +420,9 @@ final class FloatingItemsGameTests {
     private static FIConfig.FIConfigItem nullItemConfigItem() {
         try {
             Constructor<FIConfig.FIConfigItem> constructor = FIConfig.FIConfigItem.class
-                .getDeclaredConstructor(Item.class, int.class, int.class);
+                .getDeclaredConstructor(String.class);
             constructor.setAccessible(true);
-            return constructor.newInstance(null, 0, 0);
+            return constructor.newInstance("{99999}(0)");
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("could not create a null-item FIConfigItem", e);
         }

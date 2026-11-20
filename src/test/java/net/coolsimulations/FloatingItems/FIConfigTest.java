@@ -125,7 +125,7 @@ public class FIConfigTest {
         String contents = new String(
             java.nio.file.Files.readAllBytes(file.toPath()),
             java.nio.charset.StandardCharsets.UTF_8);
-        assertTrue(contents.contains("Metadata is optional and defaults to 0"));
+        assertTrue(contents.contains("Metadata defaults to 0"));
         assertTrue(contents.contains("All metadata of the entry is blacklisted"));
     }
 
@@ -145,6 +145,30 @@ public class FIConfigTest {
         assertEquals(280, first.getRegistry());
         assertEquals("{280}(0)", first.toString());
         assertEquals(5, first.getStack(5).stackSize);
+    }
+
+    @Test
+    public void registryNameEntriesResolveAndSupportWildcardMetadata() throws Exception {
+        writeConfig(new String[] { "minecraft:stick", "minecraft:stick:*" }, new int[0], new String[0], "en_us", false);
+        FIConfig.init(configFile());
+
+        assertEquals(
+            2,
+            FIConfig.blacklist.getItems()
+                .size());
+        FIConfig.FIConfigItem exact = FIConfig.blacklist.getItems()
+            .get(0);
+        FIConfig.FIConfigItem wildcard = FIConfig.blacklist.getItems()
+            .get(1);
+        assertSame(MinecraftTestBootstrap.stick(), exact.getItem());
+        assertEquals(0, exact.getMeta());
+        assertEquals(280, exact.getRegistry());
+        assertEquals("minecraft:stick:0", exact.toString());
+        assertTrue(wildcard.hasWildcardMeta());
+        assertEquals(-1, wildcard.getMeta());
+        assertEquals("minecraft:stick:*", wildcard.toString());
+
+        assertTrue(FIConfig.blacklist.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 7)));
     }
 
     @Test
@@ -367,6 +391,25 @@ public class FIConfigTest {
             280,
             FIConfig.FIConfigItem.parse("{280}")
                 .getRegistry());
+
+        FIConfig.FIConfigItem named = FIConfig.FIConfigItem.parse("minecraft:stick");
+        assertSame(MinecraftTestBootstrap.stick(), named.getItem());
+        assertEquals(0, named.getMeta());
+        assertEquals("minecraft:stick:0", named.toString());
+        assertEquals(280, named.getRegistry());
+        assertEquals(
+            3,
+            FIConfig.FIConfigItem.parse("minecraft:stick:3")
+                .getMeta());
+        assertTrue(
+            FIConfig.FIConfigItem.parse("minecraft:stick:*")
+                .hasWildcardMeta());
+        assertTrue(
+            FIConfig.FIConfigItem.parse("minecraft:stick:-1")
+                .hasWildcardMeta());
+        assertTrue(
+            FIConfig.FIConfigItem.parse("{280}(*)")
+                .hasWildcardMeta());
     }
 
     @Test
@@ -382,6 +425,12 @@ public class FIConfigTest {
         assertNull(FIConfig.FIConfigItem.parse("{280}(abc)"));
         assertNull(FIConfig.FIConfigItem.parse("{280}(0)junk"));
         assertNull(FIConfig.FIConfigItem.parse("{abc}(0)"));
+        assertNull(FIConfig.FIConfigItem.parse("minecraft"));
+        assertNull(FIConfig.FIConfigItem.parse(":stick"));
+        assertNull(FIConfig.FIConfigItem.parse("minecraft:"));
+        assertNull(FIConfig.FIConfigItem.parse("minecraft:stick:"));
+        assertNull(FIConfig.FIConfigItem.parse("minecraft:stick:abc"));
+        assertNull(FIConfig.FIConfigItem.parse("minecraft:stick:0:1"));
     }
 
     @Test

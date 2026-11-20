@@ -47,7 +47,7 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 80 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 81 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
 | `./gradlew gameTestServer` | boots a real dedicated server, runs 11 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
@@ -65,9 +65,9 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 
 | Option | Format |
 |---|---|
-| Blacklist of Items that should not Float | `{itemId}(metadata)` |
+| Blacklist of Items that should not Float | `{itemId}(metadata)` or `namespace:name[:metadata|:*]` (`*` = any metadata) |
 | Blacklist of All Items regardless of Metadata | item ID |
-| Blacklist of OreDict Entries that should not Float | ore-dictionary name — all metadata of the entry |
+| Blacklist of OreDict Entries that should not Float | ore-dictionary name â€” all metadata of the entry |
 | Default Server language | locale code, e.g. `en_us` |
 | Disable FloatingItems Update Check | boolean - disables both the GitHub request and the message |
 

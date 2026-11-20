@@ -70,7 +70,7 @@ public class FIConfig {
 
             prop = config
                 .get(FIReference.CONFIG_CATEGORY_UTIL, "Blacklist of Items that should not Float", new String[] {});
-            prop.comment = "Format: {Item ID}(Metadata). Metadata is optional and defaults to 0. Example of Spruce Log: {17}(1)";
+            prop.comment = "Format: {itemId}(metadata) or namespace:name[:metadata|:*]. Metadata defaults to 0; * means any metadata. Examples: {17}(1), minecraft:log:1, minecraft:stick:*";
 
             List<FIConfigItem> itemBlacklist = new ArrayList<FIConfigItem>();
             for (String entry : prop.getStringList()) {
@@ -163,10 +163,8 @@ public class FIConfig {
                 continue;
             }
             if (item.getItem() == null) {
-                FMLRelaunchLog.log(
-                    FIReference.MOD_NAME,
-                    Level.WARN,
-                    "Ignoring blacklist entry for unregistered item id: " + item.getRegistry());
+                FMLRelaunchLog
+                    .log(FIReference.MOD_NAME, Level.WARN, "Ignoring blacklist entry for unregistered item: " + item);
             } else {
                 resolved.add(item);
             }
@@ -297,7 +295,7 @@ public class FIConfig {
         private boolean computeBlacklisted(Item item, int meta) {
 
             Set<Integer> metas = itemBlacklist.get(item);
-            if (metas != null && metas.contains(meta)) {
+            if (metas != null && (metas.contains(meta) || metas.contains(FIConfigItem.WILDCARD_META))) {
                 return true;
             }
 
@@ -331,49 +329,53 @@ public class FIConfig {
 
     public static final class FIConfigItem {
 
+        static final int WILDCARD_META = -1;
+
+        private final String registryName;
         private final int registry;
         private final int meta;
         private Item item;
 
-        private FIConfigItem(Item item, int registry, int meta) {
-
+        private FIConfigItem(Item item, String registryName, int registry, int meta) {
             this.item = item;
+            this.registryName = registryName;
             this.registry = registry;
             this.meta = meta;
         }
 
         FIConfigItem(String entry) {
-
             FIConfigItem parsed = parse(entry);
             if (parsed == null) {
                 throw new IllegalArgumentException("Invalid FloatingItems blacklist entry: " + entry);
             }
-
             this.item = parsed.item;
+            this.registryName = parsed.registryName;
             this.registry = parsed.registry;
             this.meta = parsed.meta;
         }
 
         /**
-         * Parses one {@code {itemId}(metadata)} entry. The metadata suffix is optional and defaults to 0. Malformed
-         * strings return {@code null} so the caller can skip the entry instead of aborting the whole config load.
-         * The item itself is resolved lazily because another mod may not have registered its items yet.
-         *
-         * @param entry the raw config entry
-         * @return a parsed item, or {@code null} if the entry is invalid
+         * Parses either the legacy {@code {itemId}(metadata)} form or a registry name:
+         * {@code minecraft:log}, {@code minecraft:log:1}, {@code minecraft:log:*}. Malformed strings return
+         * {@code null} so the caller can skip the entry.
          */
         static FIConfigItem parse(String entry) {
-
             if (entry == null) {
                 return null;
             }
 
             String normalized = entry.trim()
                 .replaceAll("\\s+", "");
-            if (normalized.isEmpty() || normalized.charAt(0) != '{') {
+            if (normalized.isEmpty()) {
                 return null;
             }
+            if (normalized.charAt(0) == '{') {
+                return parseLegacy(normalized);
+            }
+            return parseRegistryName(normalized);
+        }
 
+        private static FIConfigItem parseLegacy(String normalized) {
             int closeBrace = normalized.indexOf('}');
             if (closeBrace < 0) {
                 return null;
@@ -402,27 +404,72 @@ public class FIConfig {
                 if (metaText.isEmpty()) {
                     return null;
                 }
-
-                try {
-                    meta = Integer.parseInt(metaText);
-                } catch (NumberFormatException e) {
-                    return null;
-                }
-
-                if (meta < 0) {
-                    return null;
+                if ("*".equals(metaText)) {
+                    meta = WILDCARD_META;
+                } else {
+                    try {
+                        meta = Integer.parseInt(metaText);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                    if (meta < 0) {
+                        return null;
+                    }
                 }
             }
 
-            // The registry object may not exist yet: other mods register items during their own preInit, after
-            // this config is loaded. Resolution is deferred to resolveItems()/getItem().
-            return new FIConfigItem(null, registry, meta);
+            // The registry object may not exist yet: other mods register items during their own preInit.
+            return new FIConfigItem(null, null, registry, meta);
+        }
+
+        private static FIConfigItem parseRegistryName(String normalized) {
+            int firstColon = normalized.indexOf(':');
+            if (firstColon <= 0 || firstColon == normalized.length() - 1) {
+                return null;
+            }
+
+            int lastColon = normalized.lastIndexOf(':');
+            String registryName;
+            int meta = 0;
+            if (firstColon == lastColon) {
+                registryName = normalized;
+            } else {
+                registryName = normalized.substring(0, lastColon);
+                if (registryName.indexOf(':') != registryName.lastIndexOf(':')) {
+                    return null;
+                }
+                String metaText = normalized.substring(lastColon + 1);
+                if ("*".equals(metaText) || "-1".equals(metaText)) {
+                    meta = WILDCARD_META;
+                } else {
+                    try {
+                        meta = Integer.parseInt(metaText);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                    if (meta < 0) {
+                        return null;
+                    }
+                }
+            }
+
+            if (registryName.isEmpty() || registryName.charAt(0) == ':'
+                || registryName.charAt(registryName.length() - 1) == ':') {
+                return null;
+            }
+            return new FIConfigItem(null, registryName, -1, meta);
         }
 
         public Item getItem() {
-
-            if (this.item == null && this.registry > 0) {
-                Object registered = Item.itemRegistry.getObjectById(this.registry);
+            if (this.item == null) {
+                Object registered;
+                if (this.registryName != null) {
+                    registered = Item.itemRegistry.getObject(this.registryName);
+                } else if (this.registry > 0) {
+                    registered = Item.itemRegistry.getObjectById(this.registry);
+                } else {
+                    registered = null;
+                }
                 if (registered instanceof Item) {
                     this.item = (Item) registered;
                 }
@@ -434,26 +481,36 @@ public class FIConfig {
             return this.meta;
         }
 
+        public boolean hasWildcardMeta() {
+            return this.meta == WILDCARD_META;
+        }
+
         public ItemStack getStack() {
             return getStack(1);
         }
 
         public ItemStack getStack(int count) {
-            return new ItemStack(getItem(), count, this.meta);
+            return new ItemStack(getItem(), count, this.meta == WILDCARD_META ? 0 : this.meta);
         }
 
         public int getRegistry() {
-            return this.registry;
+            if (this.registry >= 0) {
+                return this.registry;
+            }
+            Item resolved = getItem();
+            return resolved == null ? -1 : Item.getIdFromItem(resolved);
         }
 
         @Override
         public String toString() {
-            return "{" + this.registry + "}(" + this.meta + ")";
+            if (this.registryName != null) {
+                return this.registryName + (hasWildcardMeta() ? ":*" : ":" + this.meta);
+            }
+            return "{" + this.registry + "}(" + (hasWildcardMeta() ? "*" : this.meta) + ")";
         }
 
         @Override
         public boolean equals(Object obj) {
-
             if (obj == this) {
                 return true;
             }
@@ -462,12 +519,18 @@ public class FIConfig {
             }
 
             FIConfigItem other = (FIConfigItem) obj;
-            return this.registry == other.registry && this.meta == other.meta;
+            if (this.registryName == null || other.registryName == null) {
+                return this.registryName == null && other.registryName == null
+                    && this.registry == other.registry
+                    && this.meta == other.meta;
+            }
+            return this.registryName.equals(other.registryName) && this.meta == other.meta;
         }
 
         @Override
         public int hashCode() {
-            return 31 * this.registry + this.meta;
+            int base = this.registryName == null ? this.registry : this.registryName.hashCode();
+            return 31 * base + this.meta;
         }
     }
 }
