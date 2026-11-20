@@ -7,6 +7,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -189,6 +192,19 @@ public class FIConfigTest {
     }
 
     @Test
+    public void itemStackConstructorToleratesNullAndNullItems() {
+        FIConfig.FIConfigItem nullStack = new FIConfig.FIConfigItem((ItemStack) null);
+        assertNull(nullStack.getItem());
+        assertEquals(0, nullStack.getMeta());
+        assertEquals(0, nullStack.getRegistry());
+
+        FIConfig.FIConfigItem nullItem = new FIConfig.FIConfigItem(new ItemStack((Item) null));
+        assertNull(nullItem.getItem());
+        assertEquals(0, nullItem.getMeta());
+        assertEquals(0, nullItem.getRegistry());
+    }
+
+    @Test
     public void equalsIsReflexiveSymmetricAndTypeSafe() {
         FIConfig.FIConfigItem stick0 = new FIConfig.FIConfigItem("{280}(0)");
         FIConfig.FIConfigItem stick0Again = new FIConfig.FIConfigItem("{280}(0)");
@@ -212,10 +228,9 @@ public class FIConfigTest {
     }
 
     @Test
-    @Ignore("Known bug CODEBASE_ANALYSIS.md B-01: one malformed entry aborts the whole config load")
     public void oneMalformedEntryDoesNotDiscardTheRestOfTheConfig() throws Exception {
         writeConfig(
-            new String[] { "{280}(0)", "this is not a valid entry" },
+            new String[] { "this is not a valid entry", "{280}(0)", "{280}(2)" },
             new int[] { 280 },
             new String[] { "ingotCopper" },
             "de_de",
@@ -225,42 +240,25 @@ public class FIConfigTest {
 
         assertEquals("de_de", FIConfig.serverLang);
         assertTrue(FIConfig.disableUpdateCheck);
-        assertEquals(1, FIConfig.blacklistItems.length);
+        assertEquals(2, FIConfig.blacklistItems.length);
+        assertEquals(0, FIConfig.blacklistItems[0].getMeta());
+        assertEquals(2, FIConfig.blacklistItems[1].getMeta());
         assertArrayEquals(new int[] { 280 }, FIConfig.blacklistRegistryItems);
+        assertArrayEquals(new String[] { "ingotCopper" }, FIConfig.blacklistOreDict);
     }
 
     @Test
-    public void malformedEntryCurrentlyAbortsTheWholeConfig() throws Exception {
-        // Characterization of B-01: the entry parser throws inside syncConfig and the catch block abandons every
-        // later property. This test passes today and is expected to fail once the parser is made fault-tolerant.
-        writeConfig(
-            new String[] { "{280}(0)", "this is not a valid entry" },
-            new int[] { 280 },
-            new String[] { "ingotCopper" },
-            "de_de",
-            true);
-
-        FIConfig.init(configFile());
-
-        assertNull(FIConfig.blacklistRegistryItems);
-        assertNull(FIConfig.blacklistOreDict);
-        assertNull(FIConfig.serverLang);
-        assertFalse(FIConfig.disableUpdateCheck);
-    }
-
-    @Test
-    @Ignore("Known bug CODEBASE_ANALYSIS.md B-02: an unknown item id creates a FIConfigItem whose item is null")
     public void unknownItemIdIsRejectedInsteadOfCreatingANullItemEntry() throws Exception {
         writeConfig(new String[] { "{99999}(0)" }, new int[0], new String[0], "en_us", false);
 
         FIConfig.init(configFile());
+        FIConfig.resolveItems();
 
         assertEquals(0, FIConfig.blacklistItems.length);
     }
 
     @Test
-    @Ignore("Known bug CODEBASE_ANALYSIS.md B-03: an entry without (meta) throws NumberFormatException and aborts the config")
-    public void missingMetadataIsRejectedWithAUsableDefault() throws Exception {
+    public void missingMetadataDefaultsToZero() throws Exception {
         writeConfig(new String[] { "{280}" }, new int[0], new String[0], "en_us", false);
 
         FIConfig.init(configFile());
@@ -270,14 +268,106 @@ public class FIConfigTest {
     }
 
     @Test
-    public void unknownItemIdCurrentlyProducesANullItem() throws Exception {
-        // Characterization test: this is the precondition for the NPE described in B-02. It is deliberately not
-        // marked @Ignore so the suite records that the parser accepts the entry today.
-        writeConfig(new String[] { "{99999}(0)" }, new int[0], new String[0], "en_us", false);
+    public void allInvalidEntriesLeaveEmptyBlacklistsButKeepOtherProperties() throws Exception {
+        writeConfig(
+            new String[] { "garbage", "{99999}(0)", "{280}(" },
+            new int[] { 280 },
+            new String[] { "ingotCopper" },
+            "de_de",
+            true);
+
         FIConfig.init(configFile());
+        FIConfig.resolveItems();
+
+        assertNotNull(FIConfig.blacklistItems);
+        assertEquals(0, FIConfig.blacklistItems.length);
+        assertArrayEquals(new int[] { 280 }, FIConfig.blacklistRegistryItems);
+        assertArrayEquals(new String[] { "ingotCopper" }, FIConfig.blacklistOreDict);
+        assertEquals("de_de", FIConfig.serverLang);
+        assertTrue(FIConfig.disableUpdateCheck);
+    }
+
+    @Test
+    public void backendFailureResetsToSafeDefaults() {
+        FIConfig.blacklistItems = new FIConfig.FIConfigItem[] { new FIConfig.FIConfigItem("{280}(0)") };
+        FIConfig.blacklistRegistryItems = new int[] { 280 };
+        FIConfig.blacklistOreDict = new String[] { "ingotCopper" };
+        FIConfig.serverLang = "de_de";
+        FIConfig.disableUpdateCheck = true;
+        FIConfig.config = mock(Configuration.class);
+        doThrow(new RuntimeException("backend failure")).when(FIConfig.config)
+            .get(anyString(), anyString(), any(String[].class));
+
+        FIConfig.syncConfig(false);
+
+        assertNotNull(FIConfig.blacklistItems);
+        assertEquals(0, FIConfig.blacklistItems.length);
+        assertNotNull(FIConfig.blacklistRegistryItems);
+        assertEquals(0, FIConfig.blacklistRegistryItems.length);
+        assertNotNull(FIConfig.blacklistOreDict);
+        assertEquals(0, FIConfig.blacklistOreDict.length);
+        assertEquals("en_us", FIConfig.serverLang);
+        assertFalse(FIConfig.disableUpdateCheck);
+    }
+
+    @Test
+    public void parserAcceptsOptionalMetadataAndWhitespace() {
+        assertEquals(
+            0,
+            FIConfig.FIConfigItem.parse("{280}")
+                .getMeta());
+        assertEquals(
+            3,
+            FIConfig.FIConfigItem.parse("{ 280 } ( 3 )")
+                .getMeta());
+        assertEquals(
+            280,
+            FIConfig.FIConfigItem.parse("{280}")
+                .getRegistry());
+    }
+
+    @Test
+    public void parserRejectsMalformedEntries() {
+        assertNull(FIConfig.FIConfigItem.parse(null));
+        assertNull(FIConfig.FIConfigItem.parse(""));
+        assertNull(FIConfig.FIConfigItem.parse("   "));
+        assertNull(FIConfig.FIConfigItem.parse("garbage"));
+        assertNull(FIConfig.FIConfigItem.parse("{280"));
+        assertNull(FIConfig.FIConfigItem.parse("{280}("));
+        assertNull(FIConfig.FIConfigItem.parse("{280}()"));
+        assertNull(FIConfig.FIConfigItem.parse("{280}(-1)"));
+        assertNull(FIConfig.FIConfigItem.parse("{280}(abc)"));
+        assertNull(FIConfig.FIConfigItem.parse("{280}(0)junk"));
+        assertNull(FIConfig.FIConfigItem.parse("{abc}(0)"));
+    }
+
+    @Test
+    public void parserKeepsUnknownIdsForLateResolution() {
+        FIConfig.FIConfigItem unresolved = FIConfig.FIConfigItem.parse("{99999}(0)");
+
+        assertNotNull(unresolved);
+        assertNull(unresolved.getItem());
+        assertNull(
+            unresolved.getStack()
+                .getItem());
+    }
+
+    @Test
+    public void resolveItemsRemovesOnlyUnresolvedEntries() throws Exception {
+        writeConfig(new String[] { "{280}(0)", "{99999}(0)", "garbage" }, new int[0], new String[0], "en_us", false);
+
+        FIConfig.init(configFile());
+        assertEquals(2, FIConfig.blacklistItems.length);
+
+        FIConfig.resolveItems();
 
         assertEquals(1, FIConfig.blacklistItems.length);
-        assertNull(FIConfig.blacklistItems[0].getItem());
+        assertSame(MinecraftTestBootstrap.stick(), FIConfig.blacklistItems[0].getItem());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void constructorRejectsInvalidEntry() {
+        new FIConfig.FIConfigItem("garbage");
     }
 
     private File configFile() throws Exception {

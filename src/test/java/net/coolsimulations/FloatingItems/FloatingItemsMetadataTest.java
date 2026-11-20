@@ -2,6 +2,10 @@ package net.coolsimulations.FloatingItems;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import java.io.InputStream;
+import java.util.Scanner;
 
 import org.junit.Test;
 
@@ -27,6 +31,15 @@ public class FloatingItemsMetadataTest {
     }
 
     @Test
+    public void mcmodInfoDeclaresUniMixins() throws Exception {
+        String json = readResource("/mcmod.info");
+        assertNotNull(json);
+        // Match the requiredMods array even if the JSON is reformatted; the dependency must be visible to FML and
+        // to any tooling that reads mcmod.info before the @Mod annotation is processed.
+        assertTrue(json.matches("(?s).*\"requiredMods\"\\s*:\\s*\\[\\s*\"unimixins\"\\s*\\].*"));
+    }
+
+    @Test
     public void guiFactoryStillPointsAtTheClientClass() {
         Mod mod = FloatingItems.class.getAnnotation(Mod.class);
 
@@ -35,5 +48,16 @@ public class FloatingItemsMetadataTest {
         // The class exists and is public; FML loads it only on the client, but the name must be resolvable in the
         // main source set so the annotation processor can validate it.
         assertEquals("net.coolsimulations.FloatingItems.FIConfigGUI", FIConfigGUI.class.getName());
+    }
+
+    private static String readResource(String path) throws Exception {
+        try (InputStream stream = FloatingItemsMetadataTest.class.getResourceAsStream(path)) {
+            if (stream == null) {
+                return null;
+            }
+            try (Scanner scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A")) {
+                return scanner.hasNext() ? scanner.next() : "";
+            }
+        }
     }
 }

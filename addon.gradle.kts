@@ -161,7 +161,7 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                // A regression guard at the measured baseline (70.5% line / 77.9% branch when this harness landed),
+                // A regression guard at the measured baseline (80.2% line / 78.5% branch when this harness landed),
                 // not a target. Raise it as the analysis items in CODEBASE_ANALYSIS.md are fixed and covered.
                 minimum = BigDecimal("0.65")
             }
@@ -244,8 +244,12 @@ tasks.register("prepareGameTestServer") {
     val eulaFile = runDirectory.file("eula.txt").asFile
     val propertiesFile = runDirectory.file("server.properties").asFile
     val worldDirectory = runDirectory.dir("gameTestWorld").asFile
+    val classDumpDirectory = project.layout.buildDirectory.dir("jacoco/gameTestClasses").get().asFile
 
     doLast {
+        // The JaCoCo class dump is append-ish by nature: a second run can leave a hashed duplicate of the same
+        // class name, which JaCoCo refuses to analyze. Start every run with a clean dump.
+        classDumpDirectory.deleteRecursively()
         eulaFile.parentFile.mkdirs()
         eulaFile.writeText("eula=true\n")
         propertiesFile.writeText(
@@ -264,6 +268,12 @@ tasks.register("prepareGameTestServer") {
         )
         worldDirectory.deleteRecursively()
     }
+}
+
+tasks.named("runServer").configure {
+    // `org.gradle.parallel` is enabled. Without this, prepareGameTestServer and runServer can run at the same
+    // time, deleting the world/class dump while the server is starting.
+    mustRunAfter(tasks.named("prepareGameTestServer"))
 }
 
 tasks.register("gameTestServer") {

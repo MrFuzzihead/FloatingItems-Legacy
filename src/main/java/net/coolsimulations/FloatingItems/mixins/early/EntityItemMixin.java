@@ -1,5 +1,7 @@
 package net.coolsimulations.FloatingItems.mixins.early;
 
+import java.util.List;
+
 import net.coolsimulations.FloatingItems.FIConfig;
 import net.coolsimulations.FloatingItems.FIConfig.FIConfigItem;
 import net.minecraft.block.Block;
@@ -33,20 +35,34 @@ public abstract class EntityItemMixin extends Entity {
     @Inject(at = @At("HEAD"), method = "onUpdate", cancellable = true)
     public void onUpdate(CallbackInfo info) {
 
-        boolean shouldFloat = false;
+        ItemStack stack = this.getEntityItem();
+        if (stack == null || stack.getItem() == null) {
+            return;
+        }
 
-        if (!getEntityItem().getItem()
-            .onEntityItemUpdate(((EntityItem) (Object) this)) && this.getEntityItem() != null) {
+        if (!stack.getItem()
+            .onEntityItemUpdate(((EntityItem) (Object) this))) {
+
+            // The hook is allowed to change or clear the stack, so re-read it before the blacklist checks.
+            stack = this.getEntityItem();
+            if (stack == null || stack.getItem() == null) {
+                return;
+            }
+
+            Item item = stack.getItem();
+            int meta = stack.getItemDamage();
+            boolean shouldFloat = false;
 
             if (FIConfig.blacklistItems != null && FIConfig.blacklistItems.length >= 1) {
                 for (FIConfigItem blacklistItem : FIConfig.blacklistItems) {
-                    if (blacklistItem.getItem()
-                        .equals(
-                            this.getEntityItem()
-                                .getItem())) {
+                    if (blacklistItem == null || blacklistItem.getItem() == null) {
+                        continue;
+                    }
 
-                        if (blacklistItem.getMeta() == this.getEntityItem()
-                            .getItemDamage()) {
+                    if (blacklistItem.getItem()
+                        .equals(item)) {
+
+                        if (blacklistItem.getMeta() == meta) {
                             return;
                         } else {
                             shouldFloat = true;
@@ -58,9 +74,7 @@ public abstract class EntityItemMixin extends Entity {
             if (!shouldFloat && FIConfig.blacklistRegistryItems != null
                 && FIConfig.blacklistRegistryItems.length >= 1) {
                 for (int blacklistItem : FIConfig.blacklistRegistryItems) {
-                    if (blacklistItem == Item.getIdFromItem(
-                        this.getEntityItem()
-                            .getItem())) {
+                    if (blacklistItem == Item.getIdFromItem(item)) {
                         return;
                     }
                 }
@@ -68,21 +82,25 @@ public abstract class EntityItemMixin extends Entity {
 
             if (!shouldFloat && FIConfig.blacklistOreDict != null && FIConfig.blacklistOreDict.length >= 1) {
                 for (String oreDict : FIConfig.blacklistOreDict) {
+                    if (oreDict == null) {
+                        shouldFloat = true;
+                        continue;
+                    }
 
                     String oreDictEntry = oreDict.replaceAll("[^A-Za-z0-9 ]", "");
+                    List<ItemStack> ores = OreDictionary.getOres(oreDictEntry);
 
-                    if (OreDictionary.getOres(oreDictEntry)
-                        .size() > 0) {
+                    if (!ores.isEmpty()) {
+                        for (ItemStack oreStack : ores) {
+                            if (oreStack == null || oreStack.getItem() == null) {
+                                shouldFloat = true;
+                                continue;
+                            }
 
-                        for (ItemStack stack : OreDictionary.getOres(oreDictEntry)) {
+                            if (oreStack.getItem()
+                                .equals(item)) {
 
-                            if (stack.getItem()
-                                .equals(
-                                    this.getEntityItem()
-                                        .getItem())) {
-
-                                if (stack.getItemDamage() == this.getEntityItem()
-                                    .getItemDamage()) {
+                                if (oreStack.getItemDamage() == meta) {
                                     return;
                                 } else {
                                     shouldFloat = true;

@@ -32,11 +32,11 @@ public class FIReferenceTest {
     }
 
     @Test
-    public void forgeDependencyIsDeclared() {
+    public void dependenciesDeclareForgeAndUniMixins() {
         assertNotNull(FIReference.DEPENDENCIES);
         assertTrue(FIReference.DEPENDENCIES.contains("required-after:Forge"));
-        // The current string ends with a semicolon. FML tolerates it, but the trailing separator is noise.
-        assertTrue(FIReference.DEPENDENCIES.endsWith(";"));
+        assertTrue(FIReference.DEPENDENCIES.contains("required-after:unimixins"));
+        assertFalse("the dependency string should not end with a separator", FIReference.DEPENDENCIES.endsWith(";"));
     }
 
     @Test

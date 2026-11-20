@@ -213,7 +213,9 @@ final class FloatingItemsGameTests {
 
         switch (nextPhase) {
             case 0:
-                FIConfig.blacklistItems = null;
+                // Defense in depth for B-02: a caller that bypasses the config parser (or mutates the public
+                // array) can still put a null item in the list. The mixin must skip it, not NPE every tick.
+                FIConfig.blacklistItems = new FIConfig.FIConfigItem[] { null, nullItemConfigItem() };
                 FIConfig.blacklistRegistryItems = null;
                 FIConfig.blacklistOreDict = null;
                 COUNTING_CALLS.set(0);
@@ -361,7 +363,7 @@ final class FloatingItemsGameTests {
             FMLCommonHandler.instance()
                 .bus()
                 .post(new ConfigChangedEvent.OnConfigChangedEvent("floatingitems", null, false, false));
-            xfail("a ConfigChangedEvent on the FML bus re-syncs FIConfig (B-10)", "de_de".equals(FIConfig.serverLang));
+            check("a ConfigChangedEvent on the FML bus re-syncs FIConfig (B-10)", "de_de".equals(FIConfig.serverLang));
 
             config.get("util", key, "en_us")
                 .set("en_us");
@@ -424,6 +426,17 @@ final class FloatingItemsGameTests {
      * Creates a {@link FIConfig.FIConfigItem} from its on-disk string form. The constructor is package-private in
      * production; the game test lives in a subpackage and goes through reflection rather than widening the API.
      */
+    private static FIConfig.FIConfigItem nullItemConfigItem() {
+        try {
+            Constructor<FIConfig.FIConfigItem> constructor = FIConfig.FIConfigItem.class
+                .getDeclaredConstructor(Item.class, int.class, int.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(null, 0, 0);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("could not create a null-item FIConfigItem", e);
+        }
+    }
+
     private static FIConfig.FIConfigItem configItem(String entry) {
         try {
             Constructor<FIConfig.FIConfigItem> constructor = FIConfig.FIConfigItem.class
