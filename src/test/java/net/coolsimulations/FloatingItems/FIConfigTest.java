@@ -87,6 +87,13 @@ public class FIConfigTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
+    public void deprecatedForceSaveIsNullSafe() {
+        FIConfig.config = null;
+        FIConfig.forceSave();
+    }
+
+    @Test
     public void configElementsAreEmptyBeforeInit() {
         FIConfig.config = null;
         assertTrue(
@@ -108,6 +115,18 @@ public class FIConfigTest {
         assertEquals(
             Arrays.asList(ITEM_BLACKLIST, REGISTRY_BLACKLIST, OREDICT_BLACKLIST, SERVER_LANGUAGE, DISABLE_UPDATE_CHECK),
             names);
+    }
+
+    @Test
+    public void configCommentsArePersisted() throws Exception {
+        File file = configFile();
+        FIConfig.init(file);
+
+        String contents = new String(
+            java.nio.file.Files.readAllBytes(file.toPath()),
+            java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(contents.contains("Metadata is optional and defaults to 0"));
+        assertTrue(contents.contains("All metadata of the entry is blacklisted"));
     }
 
     @Test

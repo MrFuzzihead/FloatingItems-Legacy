@@ -43,6 +43,16 @@ public class FIConfig {
         syncConfig(true);
     }
 
+    /**
+     * @deprecated config sync saves itself; retained for addon source/binary compatibility
+     */
+    @Deprecated
+    public static void forceSave() {
+        if (config != null) {
+            config.save();
+        }
+    }
+
     public static void syncConfig(boolean load) {
         List<String> propOrder = new ArrayList<String>();
 

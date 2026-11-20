@@ -47,7 +47,7 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 72 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 75 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
 | `./gradlew gameTestServer` | boots a real dedicated server, runs 11 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |

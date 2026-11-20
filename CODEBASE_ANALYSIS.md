@@ -24,7 +24,7 @@ unit and in-game suites currently have no skipped or xfail tests.
 | Physics | **Fixed (B-08/B-17/B-21).** Water detection uses the entity's bounding box (`World.isMaterialInBB`), so negative coordinates, the dead eye-height/liquid-metadata check and the single-feet-block mismatch are gone. |
 | Config | **Fixed (B-01/B-02/B-03).** Entries are parsed independently, missing metadata defaults to 0, unknown IDs are retained until postInit so other mods can finish registering their items, and unresolved entries are removed by `resolveItems()`. A backend failure falls back to safe defaults. Property order and comments are applied and saved (B-20/D-06). |
 | Localisation | **Fixed for P2 (B-11/B-13/B-16).** `FILang` now loads UTF-8 `.lang` resources through a map, so keys are no longer compared with `==`, Chinese uses ASCII `%s`, and lowercasing uses `Locale.ROOT`. The `en_ud` ServerStop text is fixed; B-14 is covered by a normal test. |
-| Dead code | `FIConfig.forceSave`, `FIConfigItem(ItemStack)`, `FloatingItems.instance`, two `FIConfigGUI` methods, the `propOrder` list, an empty late mixin config, and three ServerStop translation keys. The unused `core/CoreMod` was removed. |
+| Dead code | `FIConfigItem(ItemStack)`, the old `propOrder` misuse, the ServerStop keys and `System.out` were removed. `FIConfig.forceSave`, `FloatingItems.instance` and two `FIConfigGUI` methods are retained as deprecated public-API shims; the empty late mixin config (D-08) is required by the manifest. |
 | Performance | Blacklists are now one immutable snapshot; the mixin does no regex normalization or mutable-array scanning. The remaining per-tick work is the item/registry/ore-dictionary lookup itself (P-01/P-05). |
 | Packaging | **Fixed (B-19).** `@Mod(dependencies)` and `mcmod.info` now declare `unimixins`; `FIReferenceTest` and `FloatingItemsMetadataTest` guard both. |
 | Testability | The redirect keeps vanilla control flow; the water-box helper is now unit-tested with a mocked `World`, and the blacklist/liquid rules are covered in-game. Extracting a pure `FloatingItemPolicy` remains a future refinement. |
@@ -34,8 +34,8 @@ Current verification baseline:
 ```text
 ./gradlew check                     PASS  (unit tests + Spotless + Checkstyle + JaCoCo floor + gameTest compile)
 ./gradlew gameTestServer            PASS  11/11 checks, no known bugs remain
-Unit tests                          72 executed, no skipped tests
-JaCoCo (unit run)                   line 341/415 = 82.2%, branch 151/208 = 72.6%
+Unit tests                          75 executed, no skipped tests
+JaCoCo (unit run)                   line 404/488 = 82.8%, branch 200/274 = 73.0%
 ```
 
 The game test has no xfails and the unit suite has no skipped tests.
@@ -96,10 +96,10 @@ localisation or API contract; **P3** = polish.
 | **B-23** | P2 | `FIConfig.java:23-31`; `EntityItemMixin.java:41-100` | **Fixed.** `FIConfig.blacklist` is a volatile immutable snapshot; unmodifiable lists/sets replace the public arrays. | `FIConfigTest.blacklistSnapshotIsImmutable` |
 | **B-24** | P3 | `FIConfig.java:197` | **Fixed.** Identity is registry + metadata only, with a matching hash. | `FIConfigTest.equalsIsReflexiveSymmetricTypeSafeAndHashCompatible` |
 | **B-25** | P3 | `FloatingItems.java:43-50` | **Partly fixed.** The notification is now sent at most once per player per server session. Per-player locale and a “notification only” switch remain open. | `FloatingItemsEventTest.updateMessagesAreSentOncePerPlayer`; static review for locale |
-| **B-26** | P3 | `FIUpdateHandler.java:80` | **Partly fixed.** Trimming, `v` stripping and `+build` metadata are handled; semantic ordering/prerelease comparison remains open. | `FIUpdateHandlerTest.versionPrefixIsIgnored`, `buildMetadataDoesNotTriggerAnUpdate` |
+| **B-26** | P3 | `FIUpdateHandler.java:80` | **Fixed.** Numeric core, prerelease and `+build` metadata are compared; a remote older version no longer reports an update. | `FIUpdateHandlerTest.semanticVersionOrderingHandlesCoreAndPrerelease`, `buildMetadataDoesNotTriggerAnUpdate` |
 | **B-27** | P3 | `FIUpdateHandler.java:31-33, 40-42` | **Fixed in the P0 pass.** The `Scanner` text-file path was removed with the GitHub redirect rewrite; `HttpURLConnection` is disconnected in `finally`. | Static review + `FIUpdateHandlerTest` |
 | **B-28** | P3 | `FIConfig.java:105-108` | **Fixed.** `getConfigElements()` returns an empty list when the config has not been initialized. | `FIConfigTest.configElementsAreEmptyBeforeInit` |
-| **B-29** | P3 | `FIConfig.java:56, 71, 79, 84` | `prop.comment = ...` is assigned after `Configuration.get` returns an existing property; the assignment does not mark the configuration dirty. On an existing file whose comments are missing, the comments are not written until some other value changes. | Static review of `Configuration.get`/`hasChanged` |
+| **B-29** | P3 | `FIConfig.java:56, 71, 79, 84` | **Fixed.** Property order/comments are followed by an unconditional save, so comments persist even when no value changed. | `FIConfigTest.configCommentsArePersisted` |
 
 ### 3.1 P0 change log (applied)
 
@@ -137,10 +137,10 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 |---|---|
 | B-12 | Removed the `de_alg` alias; it now falls back to English. |
 | B-14 | Replaced the `en_ud` ServerStop text with plain English FloatingItems messages (and normal placeholder checks). |
-| B-25/B-26 | Update notifications are sent once per player per session; `+build` metadata is ignored in version comparison. Per-player locale and full semver ordering remain open. |
+| B-25/B-26 | Update notifications are sent once per player per session; semantic core/prerelease and `+build` comparison are implemented. Per-player locale remains open on B-25. |
 | B-28 | `getConfigElements()` is null-safe before initialization. |
-| D-02/D-03/D-04/D-05/D-09/D-11/D-12/D-15 | Dead APIs, dead keys, debug output and duplicated update-message styling removed. |
-| D-08 | Deferred: the late mixin config is build-generated and still needed by the manifest. |
+| D-03/D-09/D-11/D-12/D-15 | Dead constructor/keys/debug/duplication removed. D-02/D-04/D-05 are retained as deprecated public API shims. |
+| D-08 | Kept: the empty late mixin config is required by the manifest. |
 
 ---
 
@@ -149,20 +149,27 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | ID | Location | Finding |
 |---|---|---|
 | **D-01** | `core/CoreMod.java` | **Removed.** `gradle.properties` sets `coreModClass = mixins.EarlyMixinsLoader`, the built manifest contains `FMLCorePlugin: ...EarlyMixinsLoader`, and `EarlyMixinsLoader` already implements `IEarlyMixinLoader`. `CoreMod` only called `MixinBootstrap.init()`, which UniMixins/MixinTweaker already handles. |
-| **D-02** | `FIConfig.java:38-40` | **Removed in the P3 pass.** Config sync saves itself; the unused method and test were deleted. |
+| **D-02** | `FIConfig.java:38-40` | **Retained as a deprecated compatibility shim.** It has no internal callers, but it was public API; it now null-checks the config. |
 | **D-03** | `FIConfig.java:117-122` | **Removed in the P3 pass.** The unused `FIConfigItem(ItemStack)` constructor and helpers were deleted. |
-| **D-04** | `FloatingItems.java:25-26` | **Removed in the P3 pass.** The unused `@Mod.Instance` field was deleted. |
-| **D-05** | `FIConfigGUI.java:46-52` | **Removed in the P3 pass.** Only the 1.7.10 interface methods remain. |
+| **D-04** | `FloatingItems.java:25-26` | **Retained for compatibility.** The `@Mod.Instance` field has no internal readers but is public FML/addon surface. |
+| **D-05** | `FIConfigGUI.java:46-60` | **Retained as deprecated compatibility methods.** They are not part of 1.7.10 `IModGuiFactory` but are public API; no internal callers. |
 | **D-06** | `FIConfig.java:43, 65, 73, 81, 86, 90` | **Fixed in the P2 pass.** `propOrder` is applied with `setCategoryPropertyOrder` and the config is saved. |
 | **D-07** | `FIConfig.java:63` | **Removed in the P0 pass.** The always-true `blacklist != null` guard is gone; the array is assigned unconditionally. |
-| **D-08** | `src/main/resources/mixins.floatingitems.json` | Empty late-mixin config. It is still listed in the manifest as `MixinConfigs: mixins.floatingitems.json` by the buildscript, so it loads an empty config on every launch. Either remove the late config/manifest entry or move the mixin there and drop the early loader. |
+| **D-08** | `src/main/resources/mixins.floatingitems.json` | **Keep.** The buildscript puts `MixinConfigs: mixins.floatingitems.json` in the manifest; deleting the file would leave a missing config reference. The empty file is a required build artifact, not dead code. |
 | **D-09** | `assets/floatingitems/lang/el_gr.lang`, `en_pt.lang` | **Removed in the P3 pass.** The dead ServerStop keys were deleted; tests assert they fall back to their keys. |
 | **D-10** | `FIConfig.java:177-195` | **Removed in the P2 pass** with the `FIConfigItem` rewrite. |
 | **D-11** | `FloatingItems.java:30` | **Removed in the P3 pass.** |
 | **D-12** | `EarlyMixinsLoader.java:16-18` | **Fixed in the P3 pass.** Returns an empty array and is covered by `MixinsTest`. |
 | **D-13** | `FIReference.java:9` | **Fixed in the P0 pass.** The dependency string no longer ends with a separator. |
-| **D-14** | `FIConfigGUI.java:36-44` | **Fixed in the P3 pass.** The empty/no-runtime-options contract is documented; the unreachable methods were already removed by D-05. |
+| **D-14** | `FIConfigGUI.java:36-44` | **Fixed in the P3 pass.** The empty/no-runtime-options contract is documented; the non-interface methods are retained as deprecated shims by D-05. |
 | **D-15** | `FIUpdateHandler.java:49-78, 80-130` | **Fixed in the P3 pass.** `styleUpdateMessage` centralizes the color/hover/click construction. |
+
+### 4.1 Dead-code audit
+
+- **Safe internal removals:** `CoreMod` (never registered), `FIConfigItem(ItemStack)` (package-private, test-only), the commented `equals` block, the ServerStop translation keys, `System.out.println("Pre Init")`, the duplicate update-message styling, and the `de_alg` alias (config-only).
+- **Not safe to assume addons never used them:** `FIConfig.forceSave`, `FloatingItems.instance` and `FIConfigGUI.createConfigGui`/`hasConfigGui` were unused inside this repository but are public surface. They are retained as deprecated compatibility shims.
+- **Intentionally breaking API changes from P2:** the public mutable `FIConfig.blacklist*` arrays were replaced by the immutable `FIConfig.blacklist` snapshot, and the public `FILang.*Lang` helper methods were replaced by the resource-backed `getTranslations`. Addons must migrate to the snapshot/getter or translation key API.
+- **D-08 is not dead code:** the buildscript writes `MixinConfigs: mixins.floatingitems.json` into the manifest, so the (currently empty) late config file must remain. Deleting it produced a missing-config reference in the built jar.
 
 ---
 
@@ -196,12 +203,12 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | **R-07** | Use a mod-specific `Logger` (`LogManager.getLogger(FIReference.MOD_ID)`) instead of `System.out`, `printStackTrace` and `FMLRelaunchLog` for normal messages. | Actionable logs with the mod name. |
 | **R-08** | Use `isInWater()`/`handleMaterialAcceleration` and a floored block position; optionally query the block at the entity's bounding-box centre and below. | **Applied in the P1 pass:** `World.isMaterialInBB` over the bounding box fixes B-08/B-17/B-21. |
 | **R-09** | Move the inject from `HEAD` to after vanilla's `onEntityItemUpdate` check (or use a `@Redirect`/`@ModifyVariable` on the hook call) so the hook is called exactly once. | **Applied in the P1 pass:** a `@Redirect` wraps the single vanilla call and preserves its early return. |
-| **R-10** | Remove `CoreMod` (D-01, done), the empty late config (D-08) and the other D-xx items. | Smaller jar, less startup work, no confusing two-coremod setup. |
+| **R-10** | Remove `CoreMod` (D-01, done) and other dead items, while keeping the manifest-required empty late config (D-08) and public compatibility shims. | Smaller jar without breaking addons or the mixin manifest. |
 | **R-11** | Add `@SideOnly(Side.CLIENT)` to `FIConfigGUI`/inner class and move GUI-only code to a client package if the package rename is acceptable. | Prevents accidental server-side class loading and makes the client boundary explicit. |
 | **R-12** | Add a public API (`FloatingItemsAPI`/`IFloatingItem`) if addons are expected to customise floating. Keep the current static config accessors deprecated. | The README advertises addons; a stable API avoids addons reaching into `FIConfig` arrays. |
 | **R-13** | Rename the root package from `net.coolsimulations.FloatingItems` to `net.coolsimulations.floatingitems` (or add a compatibility facade). | Java package convention; this is a breaking change for addons, so schedule it with R-12. |
 | **R-14** | Add `hashCode`, use `Objects.equals`, and make `FIConfigItem` immutable. | **Applied for B-05/B-24:** registry/metadata are final and `equals`/`hashCode` match. |
-| **R-15** | Replace `FIConfigGUI`'s dead `createConfigGui`/`hasConfigGui` with the 1.7.10 interface only. | D-05. |
+| **R-15** | Keep `FIConfigGUI`'s non-interface methods as deprecated shims for addons; only the 1.7.10 interface is used internally. | D-05 compatibility. |
 
 ---
 
@@ -218,7 +225,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | **F-07** | Surface bobbing: a tiny idle oscillation or a stable resting height, instead of the current slow +0.0005 drift. | Cosmetic/behavioural parity with modern Minecraft. |
 | **F-08** | Public events: `ItemFloatCheckEvent` (cancelable) and `ItemFloatTickEvent` (post), plus `IFloatingItem` for item-specific opt-in/out. | Addon-friendly; lets other mods override the blacklist without touching `FIConfig`. |
 | **F-09** | Per-player localisation for the update message; ship `.lang` resources and use the client locale where possible. | The server-side `FILang` table is a workaround; the client can translate real keys. |
-| **F-10** | Update checker: opt-in, async, cached, with a connect/read timeout, semantic version comparison, and a “show once per player” flag. | **Partly applied:** async/timeouts, build-metadata handling and show-once are done; caching and full semver ordering remain (B-25/B-26). |
+| **F-10** | Update checker: opt-in, async, cached, with a connect/read timeout, semantic version comparison, and a “show once per player” flag. | **Mostly applied:** async/timeouts, semver, build metadata and show-once are done; result caching remains. |
 | **F-11** | Config GUI categories/lang keys, logical property order (`setCategoryPropertyOrder`), and a “reload” button/command. | Fixes D-06/B-20; makes the config usable on a live server. |
 | **F-12** | `/floatingitems status` and `/floatingitems reload` commands. | Operators can inspect the effective blacklist and reload without restarting. |
 | **F-13** | Debug counters (items evaluated, items floated, cache hits) behind a config flag. | Makes P-01 measurable in production. |
@@ -235,7 +242,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
    `mcmod.info` has `"requiredMods": ["unimixins"]`. The built jar still has `TweakClass:
    org.spongepowered.asm.launch.MixinTweaker`, `MixinConfigs: mixins.floatingitems.json` and `FMLCorePlugin:
    net.coolsimulations.FloatingItems.mixins.EarlyMixinsLoader`.
-2. **One coremod** (D-01 fixed). `EarlyMixinsLoader` is the registered coremod and implements `IEarlyMixinLoader`; the unused `core/CoreMod` was removed. The empty late mixin config (D-08) is still in the manifest.
+2. **One coremod** (D-01 fixed). `EarlyMixinsLoader` is the registered coremod and implements `IEarlyMixinLoader`; the unused `core/CoreMod` was removed. The empty late mixin config (D-08) is intentionally kept because the manifest references it.
 3. **The dependency string is clean** (D-13 fixed). It no longer ends with a separator.
 4. **The accepted Minecraft range** is `[1.7, 1.7.10]`. FML compares the target version as a version; `1.7.10` is
    inside the range, but `[1.7.10]` would express the intent more clearly. The mod uses only 1.7.10 APIs.
@@ -259,7 +266,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 |---|---|
 | `addon.gradle.kts` | Applies JaCoCo, configures `Test` on a Java 8 toolchain, extends the test classpaths with `compileOnly` (Minecraft/Forge), creates `build/reports/jacoco/test`, enforces a line/branch floor, creates the `gameTest` source set, and registers `prepareGameTestServer`/`gameTestServer`/`jacocoGameTestReport`. |
 | `dependencies.gradle` | JUnit 4.13.2, Mockito 4.11.0, mockito-inline. Mockito 4 is the newest line that runs on Java 8; mockito-inline allows final Minecraft classes to be mocked. |
-| `src/test/java/...` | 8 test classes / 72 tests (no `@Ignore` markers). |
+| `src/test/java/...` | 8 test classes / 75 tests (no `@Ignore` markers). |
 | `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus a 5-phase assertion suite. |
 | `.github/workflows/game-test.yml` | Installs Java 8 + 25, runs `./gradlew test gameTestServer`, checks the `FLOATINGITEMS_GAMETEST_OK` marker, uploads the server log and coverage. |
 | `README.md` | Testing commands and the remaining P3 marker policy. |
@@ -309,9 +316,9 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 - In-game report: `build/reports/jacoco/gameTest/html`, generated after `gameTestServer` via
   `jacocoGameTestReport`. The JaCoCo agent is run with `classdumpdir=build/jacoco/gameTestClasses`, so the report
   reads exactly the bytes the agent instrumented. It is not merged into the unit report because a Forge 1.7.10
-  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 163/348 lines (46.8%)
-  and 59/174 branches (33.9%).
-- Regression floor: 65% line / 70% branch. The measured unit baseline is 82.2% line / 72.6% branch. The floor is a
+  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 163/421 lines (38.7%)
+  and 59/240 branches (24.6%).
+- Regression floor: 65% line / 70% branch. The measured unit baseline is 82.8% line / 73.0% branch. The floor is a
   guard, not a target; the mixin remains largely uncovered, and the update handler is covered by
   its opt-out/result/HTTP branches but not by a live network check.
 
@@ -355,7 +362,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 is also co
 
 ### P3 — cleanup / features (cleanup done; feature backlog remains)
 
-14. D-02…D-15 cleanup is done except the build-generated empty late mixin config (D-08).
+14. D-03/D-09/D-11/D-12/D-15 cleanup done; D-08 intentionally kept; D-02/D-04/D-05 retained as deprecated public API shims.
 15. R-01/R-02/R-04/R-05/R-09 extraction and policy tests are partly applied through `FIConfig.Blacklist` and the resource table; further policy extraction remains.
 16. F-01…F-17 features remain, in particular registry-name config, wildcard metadata, per-player locale and the public API.
 
@@ -385,7 +392,9 @@ The P0 batch below is implemented and covered by the tests in §9; P1 is also co
 | B-19 | `FIReferenceTest`, `FloatingItemsMetadataTest` | **Fixed** |
 | B-20 | `FIConfigTest.allPropertiesAreExposedToTheConfigGuiInTheConfiguredOrder` | **Fixed** |
 | B-23/B-24 | `FIConfigTest.blacklistSnapshotIsImmutable`, equality/hash test | **Fixed** |
-| B-25/B-26 | `FloatingItemsEventTest.updateMessagesAreSentOncePerPlayer`, `FIUpdateHandlerTest.buildMetadataDoesNotTriggerAnUpdate` | Partial |
+| B-25 | `FloatingItemsEventTest.updateMessagesAreSentOncePerPlayer` | Partial: once per player; per-player locale requires a client language packet |
+| B-26 | `FIUpdateHandlerTest.semanticVersionOrderingHandlesCoreAndPrerelease`, `buildMetadataDoesNotTriggerAnUpdate` | **Fixed** |
+| B-29 | `FIConfigTest.configCommentsArePersisted` | **Fixed** |
 | B-28 | `FIConfigTest.configElementsAreEmptyBeforeInit` | **Fixed** |
 
 No unit tests are skipped and the game test has no xfail entries.
@@ -415,15 +424,15 @@ All paths are under `build/rfg/minecraft-src/java` (RFG-decompiled 1.7.10 source
 
 | Measurement | Value |
 |---|---|
-| Unit tests | 72 run, 0 skipped, 0 failures |
+| Unit tests | 75 run, 0 skipped, 0 failures |
 | Game-test phases | 5 phases × 120 ticks, plus the synchronous config-bus check |
 | Game-test assertions | 11 checks; no known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
 | Game-test run time | ~47 s on the development machine (including Forge startup) |
-| JaCoCo unit line | 341/415 = 82.2% |
-| JaCoCo unit branch | 151/208 = 72.6% |
-| JaCoCo unit instruction | 1,368/1,585 = 86.3% |
+| JaCoCo unit line | 404/488 = 82.8% |
+| JaCoCo unit branch | 200/274 = 73.0% |
+| JaCoCo unit instruction | 1,618/1,862 = 86.9% |
 | JaCoCo floor | 65% line / 70% branch |
-| JaCoCo game-test run | 163/348 lines = 46.8%, 59/174 branches = 33.9% (short physics-only run) |
+| JaCoCo game-test run | 163/421 lines = 38.7%, 59/240 branches = 24.6% (short physics-only run) |
 | Test JVM | Java 8 toolchain (Temurin 8.0.432) |
 
 The game test prints per-phase Y values (`waterY`, `airY`, `lavaY`, `negativeY`) and the observed

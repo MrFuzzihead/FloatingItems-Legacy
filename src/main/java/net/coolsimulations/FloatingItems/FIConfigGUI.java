@@ -45,4 +45,20 @@ public class FIConfigGUI implements IModGuiFactory {
         return null;
     }
 
+    /**
+     * @deprecated not part of the 1.7.10 {@link IModGuiFactory} contract; retained for addon compatibility
+     */
+    @Deprecated
+    public GuiScreen createConfigGui(GuiScreen parent) {
+        return new FIConfigGUIInner(parent);
+    }
+
+    /**
+     * @deprecated not part of the 1.7.10 {@link IModGuiFactory} contract; retained for addon compatibility
+     */
+    @Deprecated
+    public boolean hasConfigGui() {
+        return true;
+    }
+
 }

@@ -25,6 +25,9 @@ import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
     guiFactory = "net.coolsimulations.FloatingItems.FIConfigGUI")
 public class FloatingItems {
 
+    @Mod.Instance(FIReference.MOD_ID)
+    public static FloatingItems instance;
+
     private final Set<String> notifiedPlayers = new HashSet<String>();
 
     @EventHandler

@@ -72,6 +72,19 @@ public class FIUpdateHandlerTest {
     }
 
     @Test
+    public void semanticVersionOrderingHandlesCoreAndPrerelease() {
+        assertTrue(FIUpdateHandler.isNewerVersion("2.0.0", "1.9.9"));
+        assertFalse(FIUpdateHandler.isNewerVersion("1.9.9", "2.0.0"));
+        assertTrue(FIUpdateHandler.isNewerVersion("1.0.1", "1.0"));
+        assertFalse(FIUpdateHandler.isNewerVersion("1.0", "1.0.0"));
+        assertTrue(FIUpdateHandler.isNewerVersion("1.0.0", "1.0.0-rc1"));
+        assertFalse(FIUpdateHandler.isNewerVersion("1.0.0-rc1", "1.0.0"));
+        assertTrue(FIUpdateHandler.isNewerVersion("1.0.0-rc2", "1.0.0-rc1"));
+        assertFalse(FIUpdateHandler.isNewerVersion("1.0.0-rc1", "1.0.0-rc2"));
+        assertFalse(FIUpdateHandler.isNewerVersion("1.0.0", "1.0.0+build.2"));
+    }
+
+    @Test
     public void buildMetadataDoesNotTriggerAnUpdate() {
         String current = FIReference.VERSION.replaceFirst("^[vV]", "");
         String buildless = current.contains("+") ? current.substring(0, current.indexOf('+')) : current;
