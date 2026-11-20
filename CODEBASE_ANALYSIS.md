@@ -220,8 +220,8 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | **F-02** | Whitelist mode (`only these items float`) in addition to the blacklist. | Useful for servers that want floating only for a few items. |
 | **F-03** | Per-dimension / per-biome / per-mod-id rules. | Nether/End water is rare but modded dimensions often have custom fluids. |
 | **F-04** | Explicit liquid policy: water only vs any `Material.water` vs a configurable list; do not use `isLiquid() && != lava` as an implicit “all modded liquids” switch. | Current code floats in oil/custom hot liquids. Make it deliberate. |
-| **F-05** | Tunable buoyancy: lift acceleration, horizontal damping, maximum upward speed, surface offset, and whether to apply only in source blocks. | Current values (`+0.04`, `0.95`, `+0.0005`) are magic numbers. |
-| **F-06** | Match modern water currents: items should be pushed by flowing water while floating, not just damped. | Test with a flowing-water channel; compare against 1.13+ behaviour. |
+| **F-05** | Tunable buoyancy: lift acceleration, horizontal damping, maximum upward speed and surface offset. | Current values (`+0.04`, `0.95`, `+0.0005`) are magic numbers. A “source blocks only” switch is a deliberate deviation from modern Java, not parity. |
+| **F-06** | Match modern water currents: items should be pushed by flowing water while floating, not just damped. | **Mostly present:** 1.7.10 `World.handleMaterialAcceleration` already applies the water current (`0.014`); the mod cancels gravity and adds only a slow lift. Downward flow therefore carries items down, matching modern Java. Add tests; change code only if a gap is found. |
 | **F-07** | Surface bobbing: a tiny idle oscillation or a stable resting height, instead of the current slow +0.0005 drift. | Cosmetic/behavioural parity with modern Minecraft. |
 | **F-08** | Public events: `ItemFloatCheckEvent` (cancelable) and `ItemFloatTickEvent` (post), plus `IFloatingItem` for item-specific opt-in/out. | Addon-friendly; lets other mods override the blacklist without touching `FIConfig`. |
 | **F-09** | Per-player localisation for the update message; ship `.lang` resources and use the client locale where possible. | **Not planned:** the mod is server-side and the configured server language is the supported behaviour; B-25 is closed by design. |
@@ -229,10 +229,40 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | **F-11** | Config GUI categories/lang keys, logical property order (`setCategoryPropertyOrder`), and a “reload” button/command. | Fixes D-06/B-20; makes the config usable on a live server. |
 | **F-12** | `/floatingitems status` and `/floatingitems reload` commands. | Operators can inspect the effective blacklist and reload without restarting. |
 | **F-13** | Debug counters (items evaluated, items floated, cache hits) behind a config flag. | Makes P-01 measurable in production. |
-| **F-14** | More game tests: partially submerged items, source vs flowing water, chunk borders, unload/reload, item NBT, modded liquid, item merge/despawn, config reload. | The current 11 checks cover the main physics and blacklist paths; these are the next highest-value cases. |
+| **F-14** | More game tests: partially submerged items, source vs flowing water (especially downward flow), chunk borders, unload/reload, item NBT, modded liquid, item merge/despawn, config reload. | The current 11 checks cover the main physics and blacklist paths; these are the next highest-value cases. |
 | **F-15** | Add a smoke test for a dedicated server boot without the game-test mod. | The current `gameTestServer` exits after assertions; a separate `-PsmokeTest` boot is useful for packaging/CI. |
 | **F-16** | Add Modrinth/CurseForge relationships for UniMixins and document the dependency in `mcmod.info`/README. | **Partly applied in the P0 pass:** `@Mod(dependencies)` and `mcmod.info` are fixed; publishing relations remain. |
 | **F-17** | Add a `data/`-style regression table for modern 1.13+ physics and a compatibility note for each supported Forge/MCP version. | Prevents future “backport” drifts. |
+
+### 7.1 Priority order
+
+Ranked by user value, regression risk and dependencies. This is the order to work in; it is not a promise to implement every item.
+
+**P1 — next**
+
+1. **F-14** — expand the game tests first. In particular, lock in the observed source-vs-downward-flowing-water behaviour, then add partial submersion, NBT, merge/despawn, chunk unload/reload and config reload. This is the safety net for every later policy change.
+2. **F-04** — make the liquid policy explicit. This fixes the current false positives in oil/custom hot liquids and defines the semantics that F-05 and F-06 must follow. Start with `water` / `any water material` / explicit allowlist.
+3. **F-02** — whitelist mode. High server value; build it on the same policy/config shape as F-04 so the two do not grow separate parsers or reload paths.
+4. **F-05** — tunable buoyancy. Expose a small set only: lift, horizontal damping, maximum upward speed and surface offset. Validate/clamp every value. Do not add a “source blocks only” switch as a parity feature; it would deliberately diverge from modern Java.
+5. **F-12** — `/floatingitems status` and `/floatingitems reload`. Small operational win, and the reload path is reused by F-11. `status` should show the effective blacklist/whitelist, liquid policy and buoyancy settings.
+
+**P2 — after P1**
+
+6. **F-11** — config GUI categories/lang keys and a reload button. Client-only and larger; share the F-12 reload service rather than adding a second reload path.
+7. **F-08** — public float events and `IFloatingItem`. Higher addon value, but the event contract should be designed after F-02/F-04/F-05 stabilise the policy semantics.
+8. **F-06** — verify modern current behaviour and add the flowing-water test. The vanilla current is already active; treat this as verification/documentation unless the test exposes a real gap.
+9. **F-03** — per-dimension / per-biome / per-mod-id rules. High complexity and niche value; start with mod-id rules if it is pursued, then dimensions, then biomes.
+10. **F-13** — debug counters behind a config flag. Useful for production measurement but not worth adding before the policy work is stable.
+11. **F-15** — dedicated-server smoke boot without the game-test mod. Release/CI safety rather than gameplay value.
+
+**P3 — defer / release hygiene**
+
+12. **F-07** — surface bobbing. Cosmetic; fold into F-05’s surface offset if it is ever done.
+13. **F-10** — update-check result caching. The check runs once at startup, so the benefit is small; optional.
+14. **F-16** — Modrinth/CurseForge relationships and dependency documentation. Low effort, but release metadata rather than code.
+15. **F-17** — modern-physics regression table and Forge/MCP compatibility notes. Documentation; do it as the physics work settles.
+
+**Not planned:** F-09 (per-player update-message localisation).
 
 ---
 
@@ -367,7 +397,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 and P2 are
 
 14. D-03/D-09/D-11/D-12/D-15 cleanup done; D-08 intentionally kept; D-02/D-04/D-05 retained as deprecated public API shims.
 15. R-01/R-02/R-03/R-04/R-05/R-06/R-07/R-08/R-09/R-11/R-12/R-13/R-14/R-15 are applied.
-16. F-01 and the API part of F-08 are applied. F-02…F-17 remain, in particular whitelist mode and events; F-09 is not planned.
+16. F-01 and the API part of F-08 are applied. F-02…F-17 remain; the ordered backlog is in §7.1 (F-14 → F-04 → F-02 → F-05 → F-12, then the P2/P3 items). F-09 is not planned.
 
 ---
 
