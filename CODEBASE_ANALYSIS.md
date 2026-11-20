@@ -1,7 +1,7 @@
 # FloatingItems-Legacy — Codebase Analysis, Improvement Plan & Test Baseline
 
 Review date: 2026-02-20  
-Scope: `src/main/java` (10 classes, ~1,500 LOC including the 1,024-line `FILang`), `src/main/resources`
+Scope: `src/main/java` (9 classes, ~1,500 LOC including the 1,024-line `FILang`), `src/main/resources`
 (mixin configs, `mcmod.info`), Gradle/GTNH build, CI workflows.  
 Baseline: Minecraft 1.7.10 / Forge 10.13.4.1614 / GTNH buildscript 2.0.34 / UniMixins 0.3.x.
 
@@ -25,7 +25,7 @@ be updated instead of silently rotting.
 | Physics | The water test is implemented at `(int) posX`, so negative-coordinate blocks use the wrong block. The `getEyeHeight()`/liquid-height comparison is dimensionally meaningless (`EntityItem` inherits `getEyeHeight() == 0.0F`), so the metadata check is dead. The test uses a single block position rather than the entity's water bounding box, which allows surface bobbing/edge cases. |
 | Config | **Fixed (B-01/B-02/B-03).** Entries are parsed independently, missing metadata defaults to 0, unknown IDs are retained until postInit so other mods can finish registering their items, and unresolved entries are removed by `resolveItems()`. A backend failure falls back to safe defaults. The `propOrder` list is still built but never applied (B-20/D-06). |
 | Localisation | `FILang` compares keys with `==` and is a 1,024-line if-chain. Chinese tables use the fullwidth `％`, so placeholders are never substituted. `en_ud` is copied from ServerStop. Turkish locale lowercasing can miss every language code. |
-| Dead code | `core/CoreMod` is not registered (the manifest points at `EarlyMixinsLoader`), `FIConfig.forceSave`, `FIConfigItem(ItemStack)`, `FloatingItems.instance`, two `FIConfigGUI` methods, the `propOrder` list, an empty late mixin config, and three ServerStop translation keys. |
+| Dead code | `FIConfig.forceSave`, `FIConfigItem(ItemStack)`, `FloatingItems.instance`, two `FIConfigGUI` methods, the `propOrder` list, an empty late mixin config, and three ServerStop translation keys. The unused `core/CoreMod` was removed. |
 | Performance | The mixin still scans every blacklist entry, normalises ore-dictionary names with a regex, and looks up `Item.getIdFromItem`/DataWatcher values on **every item entity every tick** (P-01/P-03/P-05). The ore list is cached once per entry now (P-02), and the stack is read once before/after the hook (P-04). |
 | Packaging | **Fixed (B-19).** `@Mod(dependencies)` and `mcmod.info` now declare `unimixins`; `FIReferenceTest` and `FloatingItemsMetadataTest` guard both. |
 | Testability | Most of the decision logic is still embedded in the `@Inject` method. The config parser, translation table, update-result builder and login guards are directly testable; extracting a pure `FloatingItemPolicy` would also make the blacklist/liquid rules unit-testable. |
@@ -36,7 +36,7 @@ Current verification baseline:
 ./gradlew check                     PASS  (unit tests + Spotless + Checkstyle + JaCoCo floor + gameTest compile)
 ./gradlew gameTestServer            PASS  11/11 checks, 4 documented known bugs remain
 Unit tests                          69 executed, 6 intentionally @Ignore'd (remaining P2/P3 bugs)
-JaCoCo (unit run)                   line 600/752 = 79.8%, branch 439/564 = 77.8%
+JaCoCo (unit run)                   line 600/744 = 80.6%, branch 439/564 = 77.8%
 ```
 
 The 4 known bugs asserted by the game test are B-06, B-07, B-08 and B-09. The `@Ignore` unit tests cover B-05,
@@ -120,7 +120,7 @@ The remaining game-test xfails are B-06/B-07/B-08/B-09. The remaining `@Ignore` 
 
 | ID | Location | Finding |
 |---|---|---|
-| **D-01** | `core/CoreMod.java` | Not referenced by the build. `gradle.properties` sets `coreModClass = mixins.EarlyMixinsLoader`, and the built manifest contains `FMLCorePlugin: ...EarlyMixinsLoader`, not `CoreMod`. The class also calls `MixinBootstrap.init()` in its constructor, which would be a second initialisation if it were ever used. Delete it or make it the single coremod entry and remove `EarlyMixinsLoader`. |
+| **D-01** | `core/CoreMod.java` | **Removed.** `gradle.properties` sets `coreModClass = mixins.EarlyMixinsLoader`, the built manifest contains `FMLCorePlugin: ...EarlyMixinsLoader`, and `EarlyMixinsLoader` already implements `IEarlyMixinLoader`. `CoreMod` only called `MixinBootstrap.init()`, which UniMixins/MixinTweaker already handles. |
 | **D-02** | `FIConfig.java:38-40` | `forceSave()` has no callers. |
 | **D-03** | `FIConfig.java:117-122` | `FIConfigItem(ItemStack)` has no callers. The string constructor is the only production path; tests use the stack constructor only to pin the identity contract. Either remove it or expose it as the public API and use it. |
 | **D-04** | `FloatingItems.java:25-26` | `instance` is injected by FML but never read. Keep only if an addon/API depends on it; otherwise remove the annotation field. |
@@ -168,7 +168,7 @@ The remaining game-test xfails are B-06/B-07/B-08/B-09. The remaining `@Ignore` 
 | **R-07** | Use a mod-specific `Logger` (`LogManager.getLogger(FIReference.MOD_ID)`) instead of `System.out`, `printStackTrace` and `FMLRelaunchLog` for normal messages. | Actionable logs with the mod name. |
 | **R-08** | Use `isInWater()`/`handleMaterialAcceleration` and a floored block position; optionally query the block at the entity's bounding-box centre and below. | Fixes B-08/B-17/B-21 and matches vanilla's own water detection. |
 | **R-09** | Move the inject from `HEAD` to after vanilla's `onEntityItemUpdate` check (or use a `@Redirect`/`@ModifyVariable` on the hook call) so the hook is called exactly once. | Fixes B-06 without losing modded items that intentionally cancel the default update. |
-| **R-10** | Remove `CoreMod` (D-01), the empty late config (D-08) and the other D-xx items. | Smaller jar, less startup work, no confusing two-coremod setup. |
+| **R-10** | Remove `CoreMod` (D-01, done), the empty late config (D-08) and the other D-xx items. | Smaller jar, less startup work, no confusing two-coremod setup. |
 | **R-11** | Add `@SideOnly(Side.CLIENT)` to `FIConfigGUI`/inner class and move GUI-only code to a client package if the package rename is acceptable. | Prevents accidental server-side class loading and makes the client boundary explicit. |
 | **R-12** | Add a public API (`FloatingItemsAPI`/`IFloatingItem`) if addons are expected to customise floating. Keep the current static config accessors deprecated. | The README advertises addons; a stable API avoids addons reaching into `FIConfig` arrays. |
 | **R-13** | Rename the root package from `net.coolsimulations.FloatingItems` to `net.coolsimulations.floatingitems` (or add a compatibility facade). | Java package convention; this is a breaking change for addons, so schedule it with R-12. |
@@ -207,8 +207,7 @@ The remaining game-test xfails are B-06/B-07/B-08/B-09. The remaining `@Ignore` 
    `mcmod.info` has `"requiredMods": ["unimixins"]`. The built jar still has `TweakClass:
    org.spongepowered.asm.launch.MixinTweaker`, `MixinConfigs: mixins.floatingitems.json` and `FMLCorePlugin:
    net.coolsimulations.FloatingItems.mixins.EarlyMixinsLoader`.
-2. **Two coremods, one unused** (D-01). `gradle.properties` points at `EarlyMixinsLoader`; `core/CoreMod` is dead.
-   The empty late mixin config (D-08) is also still in the manifest.
+2. **One coremod** (D-01 fixed). `EarlyMixinsLoader` is the registered coremod and implements `IEarlyMixinLoader`; the unused `core/CoreMod` was removed. The empty late mixin config (D-08) is still in the manifest.
 3. **The dependency string is clean** (D-13 fixed). It no longer ends with a separator.
 4. **The accepted Minecraft range** is `[1.7, 1.7.10]`. FML compares the target version as a version; `1.7.10` is
    inside the range, but `[1.7.10]` would express the intent more clearly. The mod uses only 1.7.10 APIs.
@@ -282,10 +281,10 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 - In-game report: `build/reports/jacoco/gameTest/html`, generated after `gameTestServer` via
   `jacocoGameTestReport`. The JaCoCo agent is run with `classdumpdir=build/jacoco/gameTestClasses`, so the report
   reads exactly the bytes the agent instrumented. It is not merged into the unit report because a Forge 1.7.10
-  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 119/300 lines (39.7%)
-  and 29/130 branches (22.3%).
-- Regression floor: 65% line / 70% branch. The measured unit baseline is 79.8% line / 77.8% branch. The floor is a
-  guard, not a target; the mixin and dead `CoreMod` remain largely uncovered, and the update handler is covered by
+  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 114/300 lines (38.0%)
+  and 28/130 branches (21.5%).
+- Regression floor: 65% line / 70% branch. The measured unit baseline is 80.6% line / 77.8% branch. The floor is a
+  guard, not a target; the mixin remains largely uncovered, and the update handler is covered by
   its opt-out/result/HTTP branches but not by a live network check.
 
 ### 9.5 What is still hard to test headlessly
@@ -330,7 +329,7 @@ The P0 batch below is implemented and covered by the tests in §9. The next work
 
 ### P3 — cleanup / features
 
-14. D-01…D-15 dead-code removal; `CoreMod`, empty late config, unused methods/keys.
+14. D-02…D-15 dead-code removal; empty late config, unused methods/keys (`CoreMod`/D-01 is done).
 15. R-01/R-02/R-04/R-05/R-09 extraction and policy tests.
 16. F-01…F-17 features, in particular registry-name config, wildcard metadata, per-player locale and the public API.
 
@@ -393,11 +392,11 @@ All paths are under `build/rfg/minecraft-src/java` (RFG-decompiled 1.7.10 source
 | Game-test phases | 5 phases × 120 ticks, plus the synchronous config-bus check |
 | Game-test assertions | 11 checks; 4 documented known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
 | Game-test run time | ~47 s on the development machine (including Forge startup) |
-| JaCoCo unit line | 600/752 = 79.8% |
+| JaCoCo unit line | 600/744 = 80.6% |
 | JaCoCo unit branch | 439/564 = 77.8% |
-| JaCoCo unit instruction | 1,956/2,416 = 81.0% |
+| JaCoCo unit instruction | 1,956/2,402 = 81.4% |
 | JaCoCo floor | 65% line / 70% branch |
-| JaCoCo game-test run | 119/300 lines = 39.7%, 29/130 branches = 22.3% (short physics-only run) |
+| JaCoCo game-test run | 114/300 lines = 38.0%, 28/130 branches = 21.5% (short physics-only run) |
 | Test JVM | Java 8 toolchain (Temurin 8.0.432) |
 
 The game test prints per-phase Y values (`waterY`, `airY`, `lavaY`, `negativeY`) and the observed

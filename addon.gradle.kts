@@ -161,7 +161,7 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                // A regression guard at the measured baseline (79.8% line / 77.8% branch when this harness landed),
+                // A regression guard at the measured baseline (80.6% line / 77.8% branch when this harness landed),
                 // not a target. Raise it as the analysis items in CODEBASE_ANALYSIS.md are fixed and covered.
                 minimum = BigDecimal("0.65")
             }
