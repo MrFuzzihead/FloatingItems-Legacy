@@ -21,9 +21,9 @@ public class FIConfig {
 	static Configuration config;
 
 	public static FIConfigItem[] blacklistItems;
-	
+
 	public static int[] blacklistRegistryItems;
-	
+
 	public static String[] blacklistOreDict;
 
 	public static String serverLang;
@@ -67,12 +67,12 @@ public class FIConfig {
 				blacklistItems = blacklist.toArray(new FIConfigItem[] {});
 
 			propOrder.add(prop.getName());
-			
+
 			prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Blacklist of All Items regardless of Metadata that should not Float", new int[]{});
 			prop.comment = "Format: Item ID. Example of Cobblestone: 4";
 			blacklistRegistryItems = prop.getIntList();
 			propOrder.add(prop.getName());
-			
+
 			prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, "Blacklist of OreDict Entries that should not Float", new String[]{});
 			prop.comment = "Format: OreDict. Example of Copper Ingot: ingotCopper";
 			blacklistOreDict = prop.getStringList();
@@ -115,12 +115,12 @@ public class FIConfig {
 		FIConfigItem(ItemStack stack) {
 
 			this.item = stack.getItem();
-			this.meta = stack.getMetadata();
+			this.meta = stack.getItemDamage();
 			this.registry = Item.getIdFromItem(this.item);
 		}
 
 		FIConfigItem(String entry) {
-			
+
 			entry = entry.replaceAll(" ", "");
 
 			this.meta = Integer.parseInt(StringUtils.substringBetween(entry, "(", ")"));
@@ -171,25 +171,25 @@ public class FIConfig {
 			}
 
 			FIConfigItem other = (FIConfigItem) obj;
-			
+
 			/**if(this.registry == other.registry) {
-				
+
 				if(this.meta == other.meta) {
-					
+
 					if(this.item == other.item) {
 						return true;
 					} else {
 						return false;
 					}
-					
+
 				} else {
 					return false;
 				}
-				
+
 			} else {
 				return false;
 			}**/
-			
+
 			return this.registry == other.registry && this.meta == other.meta && this.item == other.item;
 		}
 	}

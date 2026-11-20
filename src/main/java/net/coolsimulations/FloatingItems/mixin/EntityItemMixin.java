@@ -41,7 +41,7 @@ public abstract class EntityItemMixin extends Entity {
 				for(FIConfigItem blacklistItem : FIConfig.blacklistItems) {
 					if(blacklistItem.getItem().equals(this.getEntityItem().getItem())) {
 
-						if(blacklistItem.getMeta() == this.getEntityItem().getMetadata()) {
+						if(blacklistItem.getMeta() == this.getEntityItem().getItemDamage()) {
 							return;
 						} else {
 							shouldFloat = true;
@@ -49,7 +49,7 @@ public abstract class EntityItemMixin extends Entity {
 					}
 				}
 			}
-			
+
 			if(!shouldFloat && FIConfig.blacklistRegistryItems != null && FIConfig.blacklistRegistryItems.length >= 1) {
 				for(int blacklistItem : FIConfig.blacklistRegistryItems) {
 					if(blacklistItem == Item.getIdFromItem(this.getEntityItem().getItem())) {
@@ -57,19 +57,19 @@ public abstract class EntityItemMixin extends Entity {
 					}
 				}
 			}
-			
+
 			if(!shouldFloat && FIConfig.blacklistOreDict != null && FIConfig.blacklistOreDict.length >= 1) {
 					for(String oreDict : FIConfig.blacklistOreDict) {
-						
+
 						String oreDictEntry = oreDict.replaceAll("[^A-Za-z0-9 ]", "");
-						
+
 						if(OreDictionary.getOres(oreDictEntry).size() > 0) {
 
 							for(ItemStack stack : OreDictionary.getOres(oreDictEntry)) {
 
 								if(stack.getItem().equals(this.getEntityItem().getItem())) {
 
-									if(stack.getMetadata() == this.getEntityItem().getMetadata()) {
+									if(stack.getItemDamage() == this.getEntityItem().getItemDamage()) {
 										return;
 									} else {
 										shouldFloat = true;
