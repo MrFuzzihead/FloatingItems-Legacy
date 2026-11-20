@@ -9,7 +9,6 @@ import java.util.Locale;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -58,14 +57,10 @@ public class FILangTest {
                 assertFalse("empty translation for " + language + " / " + key, translated.isEmpty());
             }
 
-            // The upside-down locale intentionally renders the title in flipped glyphs; the other locales keep the
-            // readable mod name.
-            if (!"en_ud".equals(language)) {
-                String title = FILang.getTranslations("fi.configgui.title");
-                assertTrue(
-                    "config title for " + language + " should contain the mod name",
-                    title.contains(FIReference.MOD_NAME));
-            }
+            String title = FILang.getTranslations("fi.configgui.title");
+            assertTrue(
+                "config title for " + language + " should contain the mod name",
+                title.contains(FIReference.MOD_NAME));
         }
     }
 
@@ -118,20 +113,17 @@ public class FILangTest {
     }
 
     @Test
-    public void greekOneSecondKeyIsStillTranslated() {
+    public void removedServerStopKeysFallBackToTheKey() {
         FIConfig.serverLang = "el_gr";
-        assertFalse("floatingitems.one_second".equals(FILang.getTranslations("floatingitems.one_second")));
-    }
+        assertEquals("floatingitems.one_second", FILang.getTranslations("floatingitems.one_second"));
 
-    @Test
-    public void pirateCommandKeysAreStillTranslated() {
         FIConfig.serverLang = "en_pt";
-        assertFalse(
-            "floatingitems.commands.cancel.usage"
-                .equals(FILang.getTranslations("floatingitems.commands.cancel.usage")));
-        assertFalse(
-            "floatingitems.commands.cancel.display1"
-                .equals(FILang.getTranslations("floatingitems.commands.cancel.display1")));
+        assertEquals(
+            "floatingitems.commands.cancel.usage",
+            FILang.getTranslations("floatingitems.commands.cancel.usage"));
+        assertEquals(
+            "floatingitems.commands.cancel.display1",
+            FILang.getTranslations("floatingitems.commands.cancel.display1"));
     }
 
     @Test
@@ -143,11 +135,10 @@ public class FILangTest {
     }
 
     @Test
-    public void germanAlgeriaAliasStillMapsToGerman() {
+    public void germanAlgeriaFallsBackToEnglish() {
+        String english = translation("en_us", "floatingitems.update.display1");
         FIConfig.serverLang = "de_alg";
-        assertEquals(
-            translation("de_de", "floatingitems.update.display1"),
-            FILang.getTranslations("floatingitems.update.display1"));
+        assertEquals(english, FILang.getTranslations("floatingitems.update.display1"));
     }
 
     @Test
@@ -167,15 +158,18 @@ public class FILangTest {
     }
 
     @Test
-    @Ignore("Known bug CODEBASE_ANALYSIS.md B-14: en_ud is a copy of the ServerStop text and never mentions FloatingItems")
-    public void upsideDownEnglishMentionsThisMod() {
+    public void enUdDoesNotUseServerStopText() {
         FIConfig.serverLang = "en_ud";
-        assertEquals(
-            "the en_ud update text should mention FloatingItems, not ServerStop",
-            true,
-            FILang.getTranslations("floatingitems.update.display1")
-                .toLowerCase(Locale.ROOT)
-                .contains("floatingitems"));
+        String display1 = FILang.getTranslations("floatingitems.update.display1");
+        String display3 = FILang.getTranslations("floatingitems.update.display3");
+        assertFalse(
+            display1.toLowerCase(Locale.ROOT)
+                .contains("serverstop"));
+        assertFalse(
+            display3.toLowerCase(Locale.ROOT)
+                .contains("serverstop"));
+        assertEquals(2, countPlaceholders(display1));
+        assertEquals(2, countPlaceholders(display3));
     }
 
     private static String translation(String language, String key) {

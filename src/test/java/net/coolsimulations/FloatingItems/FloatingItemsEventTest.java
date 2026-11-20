@@ -6,8 +6,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.Collections;
+import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
@@ -85,6 +87,23 @@ public class FloatingItemsEventTest {
         verify(player).addChatMessage(FIUpdateHandler.updateInfo);
         verify(player).addChatMessage(FIUpdateHandler.updateVersionInfo);
         verify(player, times(2)).addChatMessage(any(IChatComponent.class));
+    }
+
+    @Test
+    public void updateMessagesAreSentOncePerPlayer() {
+        FIUpdateHandler.isOld = true;
+        FIUpdateHandler.updateInfo = new ChatComponentTranslation("floatingitems.update.display1", new Object[0]);
+        FIUpdateHandler.updateVersionInfo = new ChatComponentText("1.2.3");
+        EntityPlayerMP player = mock(EntityPlayerMP.class);
+        when(player.getUniqueID()).thenReturn(UUID.randomUUID());
+        FloatingItems mod = new FloatingItems();
+        PlayerLoggedInEvent event = new PlayerLoggedInEvent(player);
+
+        mod.onPlayerLogin(event);
+        mod.onPlayerLogin(event);
+
+        verify(player, times(1)).addChatMessage(FIUpdateHandler.updateInfo);
+        verify(player, times(1)).addChatMessage(FIUpdateHandler.updateVersionInfo);
     }
 
     @Test

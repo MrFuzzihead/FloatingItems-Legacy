@@ -10,7 +10,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.util.Arrays;
@@ -85,6 +84,14 @@ public class FIConfigTest {
                 .size());
         assertEquals("en_us", FIConfig.serverLang);
         assertFalse(FIConfig.disableUpdateCheck);
+    }
+
+    @Test
+    public void configElementsAreEmptyBeforeInit() {
+        FIConfig.config = null;
+        assertTrue(
+            FIConfig.getConfigElements()
+                .isEmpty());
     }
 
     @Test
@@ -172,50 +179,6 @@ public class FIConfigTest {
             FIConfig.blacklist.getItems()
                 .get(0)
                 .getMeta());
-    }
-
-    @Test
-    public void forceSaveWritesPendingValues() throws Exception {
-        File file = configFile();
-        FIConfig.init(file);
-        FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, SERVER_LANGUAGE, "en_us")
-            .set("fr_fr");
-
-        FIConfig.forceSave();
-
-        assertTrue(read(file).contains("fr_fr"));
-    }
-
-    @Test
-    public void itemStackConstructorKeepsTheItemAndMetadata() {
-        ItemStack stack = mock(ItemStack.class);
-        Item item = MinecraftTestBootstrap.stick();
-        when(stack.getItem()).thenReturn(item);
-        when(stack.getItemDamage()).thenReturn(3);
-
-        FIConfig.FIConfigItem configItem = new FIConfig.FIConfigItem(stack);
-
-        assertSame(item, configItem.getItem());
-        assertEquals(3, configItem.getMeta());
-        assertEquals(MinecraftTestBootstrap.STICK_ID, configItem.getRegistry());
-        assertSame(
-            item,
-            configItem.getStack(2)
-                .getItem());
-        assertEquals(2, configItem.getStack(2).stackSize);
-    }
-
-    @Test
-    public void itemStackConstructorToleratesNullAndNullItems() {
-        FIConfig.FIConfigItem nullStack = new FIConfig.FIConfigItem((ItemStack) null);
-        assertNull(nullStack.getItem());
-        assertEquals(0, nullStack.getMeta());
-        assertEquals(0, nullStack.getRegistry());
-
-        FIConfig.FIConfigItem nullItem = new FIConfig.FIConfigItem(new ItemStack((Item) null));
-        assertNull(nullItem.getItem());
-        assertEquals(0, nullItem.getMeta());
-        assertEquals(0, nullItem.getRegistry());
     }
 
     @Test
@@ -540,8 +503,4 @@ public class FIConfigTest {
         assertTrue(file.exists());
     }
 
-    private static String read(File file) throws Exception {
-        byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
-        return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-    }
 }

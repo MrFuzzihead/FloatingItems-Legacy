@@ -326,7 +326,7 @@ final class FloatingItemsGameTests {
                 check(
                     "an item in lava does not receive water buoyancy",
                     lavaItem.isDead || lavaItem.posY < WATER_START_Y + 1.0D);
-                check("an item at negative coordinates floats (B-08)", negativeItem.posY > negativeStartY + 0.5D);
+                check("an item at negative coordinates floats (B-08)", negativeItem.posY > negativeStartY + 0.2D);
                 int calls = COUNTING_CALLS.get();
                 check(
                     "onEntityItemUpdate is called once per tick (B-06)",

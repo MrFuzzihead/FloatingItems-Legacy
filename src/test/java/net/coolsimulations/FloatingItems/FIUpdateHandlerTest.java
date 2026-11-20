@@ -72,6 +72,17 @@ public class FIUpdateHandlerTest {
     }
 
     @Test
+    public void buildMetadataDoesNotTriggerAnUpdate() {
+        String current = FIReference.VERSION.replaceFirst("^[vV]", "");
+        String buildless = current.contains("+") ? current.substring(0, current.indexOf('+')) : current;
+
+        FIUpdateHandler.processUpdateData(buildless + "+build.7", null);
+
+        assertFalse(FIUpdateHandler.isOld);
+        assertNull(FIUpdateHandler.updateInfo);
+    }
+
+    @Test
     public void olderVersionBuildsTheWarningAndTheReleaseNotes() {
         FIUpdateHandler.processUpdateData("0.0.0-test", "release notes");
 

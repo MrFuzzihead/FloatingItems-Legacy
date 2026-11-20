@@ -43,10 +43,6 @@ public class FIConfig {
         syncConfig(true);
     }
 
-    public static void forceSave() {
-        config.save();
-    }
-
     public static void syncConfig(boolean load) {
         List<String> propOrder = new ArrayList<String>();
 
@@ -167,6 +163,9 @@ public class FIConfig {
     }
 
     public static List<IConfigElement> getConfigElements() {
+        if (config == null) {
+            return Collections.emptyList();
+        }
         List<IConfigElement> list = new ArrayList<IConfigElement>();
         list.addAll(new ConfigElement(config.getCategory(FIReference.CONFIG_CATEGORY_UTIL)).getChildElements());
         return list;
@@ -279,28 +278,6 @@ public class FIConfig {
             this.item = item;
             this.registry = registry;
             this.meta = meta;
-        }
-
-        FIConfigItem(ItemStack stack) {
-
-            this(itemOf(stack), registryOf(stack), metaOf(stack));
-        }
-
-        private static Item itemOf(ItemStack stack) {
-
-            return stack == null ? null : stack.getItem();
-        }
-
-        private static int registryOf(ItemStack stack) {
-
-            Item item = itemOf(stack);
-            return item == null ? 0 : Item.getIdFromItem(item);
-        }
-
-        private static int metaOf(ItemStack stack) {
-
-            Item item = itemOf(stack);
-            return item == null ? 0 : stack.getItemDamage();
         }
 
         FIConfigItem(String entry) {

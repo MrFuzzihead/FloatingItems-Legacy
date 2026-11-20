@@ -95,7 +95,7 @@ public class FIUpdateHandler {
             return;
         }
 
-        if (latestVersion.equals(normalizeVersion(FIReference.VERSION))) {
+        if (buildless(latestVersion).equals(buildless(normalizeVersion(FIReference.VERSION)))) {
             return;
         }
 
@@ -118,6 +118,12 @@ public class FIUpdateHandler {
         return normalized;
     }
 
+    private static String buildless(String version) {
+
+        int plus = version.indexOf('+');
+        return plus < 0 ? version : version.substring(0, plus);
+    }
+
     private static ChatComponentTranslation buildEndedMessage() {
 
         ChatComponentText mod = new ChatComponentText(FIReference.MOD_NAME);
@@ -128,13 +134,10 @@ public class FIUpdateHandler {
         mcVersion.getChatStyle()
             .setColor(EnumChatFormatting.BLUE);
 
-        ChatComponentTranslation message = new ChatComponentTranslation(
-            FILang.getTranslations("floatingitems.update.display3"),
-            new Object[] { mod, mcVersion });
-        message.getChatStyle()
-            .setColor(EnumChatFormatting.YELLOW);
-        addUpdateLink(message);
-        return message;
+        return styleUpdateMessage(
+            new ChatComponentTranslation(
+                FILang.getTranslations("floatingitems.update.display3"),
+                new Object[] { mod, mcVersion }));
     }
 
     private static ChatComponentTranslation buildAvailableMessage(String latestVersion) {
@@ -147,9 +150,14 @@ public class FIUpdateHandler {
         version.getChatStyle()
             .setColor(EnumChatFormatting.BLUE);
 
-        ChatComponentTranslation message = new ChatComponentTranslation(
-            FILang.getTranslations("floatingitems.update.display1"),
-            new Object[] { mod, version });
+        return styleUpdateMessage(
+            new ChatComponentTranslation(
+                FILang.getTranslations("floatingitems.update.display1"),
+                new Object[] { mod, version }));
+    }
+
+    private static ChatComponentTranslation styleUpdateMessage(ChatComponentTranslation message) {
+
         message.getChatStyle()
             .setColor(EnumChatFormatting.YELLOW);
         addUpdateLink(message);

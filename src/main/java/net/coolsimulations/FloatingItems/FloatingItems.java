@@ -1,6 +1,8 @@
 package net.coolsimulations.FloatingItems;
 
 import java.io.File;
+import java.util.HashSet;
+import java.util.Set;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 
@@ -23,12 +25,10 @@ import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
     guiFactory = "net.coolsimulations.FloatingItems.FIConfigGUI")
 public class FloatingItems {
 
-    @Mod.Instance(FIReference.MOD_ID)
-    public static FloatingItems instance;
+    private final Set<String> notifiedPlayers = new HashSet<String>();
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        System.out.println("Pre Init");
         FIConfig.init(new File(event.getModConfigurationDirectory(), FIReference.FLOATINGITEMS_CONFIG_FILE));
         FIUpdateHandler.init();
         // PlayerLoggedInEvent and ConfigChangedEvent are posted on FML's bus in 1.7.10, not the Forge bus.
@@ -63,6 +63,12 @@ public class FloatingItems {
         EntityPlayerMP player = (EntityPlayerMP) event.player;
         // The update check runs asynchronously. Either message can still be null if its HTTP request failed, so
         // never hand a null component to the player connection.
+        if (FIUpdateHandler.updateInfo == null && FIUpdateHandler.updateVersionInfo == null) {
+            return;
+        }
+        if (!notifiedPlayers.add(String.valueOf(player.getUniqueID()))) {
+            return;
+        }
         if (FIUpdateHandler.updateInfo != null) {
             player.addChatMessage(FIUpdateHandler.updateInfo);
         }

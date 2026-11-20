@@ -10,9 +10,8 @@ covered by the tests described in §9. The text below describes the original def
 lists what was changed. Everything from P1 onward remains open unless stated otherwise.
 
 The companion test harness is described in §9 and wired through `addon.gradle.kts`, `dependencies.gradle`,
-`src/test/java`, `src/gameTest/java` and `.github/workflows/game-test.yml`. Known bugs that are asserted in tests
-use the `B-xx` ids below. A failing xfail becomes an “XPASS” failure when the bug is fixed, which forces the test to
-be updated instead of silently rotting.
+`src/test/java`, `src/gameTest/java` and `.github/workflows/game-test.yml`. Known bugs use the `B-xx` ids below; the
+unit and in-game suites currently have no skipped or xfail tests.
 
 ---
 
@@ -24,7 +23,7 @@ be updated instead of silently rotting.
 | Event wiring | **Fixed (B-10).** `FloatingItems` now registers on `FMLCommonHandler.bus()`, where both `PlayerLoggedInEvent` and `ConfigChangedEvent` are posted. The game test posts the config event and observes the reload. |
 | Physics | **Fixed (B-08/B-17/B-21).** Water detection uses the entity's bounding box (`World.isMaterialInBB`), so negative coordinates, the dead eye-height/liquid-metadata check and the single-feet-block mismatch are gone. |
 | Config | **Fixed (B-01/B-02/B-03).** Entries are parsed independently, missing metadata defaults to 0, unknown IDs are retained until postInit so other mods can finish registering their items, and unresolved entries are removed by `resolveItems()`. A backend failure falls back to safe defaults. Property order and comments are applied and saved (B-20/D-06). |
-| Localisation | **Fixed for P2 (B-11/B-13/B-16).** `FILang` now loads UTF-8 `.lang` resources through a map, so keys are no longer compared with `==`, Chinese uses ASCII `%s`, and lowercasing uses `Locale.ROOT`. `en_ud` still carries the old ServerStop text (B-14, P3). |
+| Localisation | **Fixed for P2 (B-11/B-13/B-16).** `FILang` now loads UTF-8 `.lang` resources through a map, so keys are no longer compared with `==`, Chinese uses ASCII `%s`, and lowercasing uses `Locale.ROOT`. The `en_ud` ServerStop text is fixed; B-14 is covered by a normal test. |
 | Dead code | `FIConfig.forceSave`, `FIConfigItem(ItemStack)`, `FloatingItems.instance`, two `FIConfigGUI` methods, the `propOrder` list, an empty late mixin config, and three ServerStop translation keys. The unused `core/CoreMod` was removed. |
 | Performance | Blacklists are now one immutable snapshot; the mixin does no regex normalization or mutable-array scanning. The remaining per-tick work is the item/registry/ore-dictionary lookup itself (P-01/P-05). |
 | Packaging | **Fixed (B-19).** `@Mod(dependencies)` and `mcmod.info` now declare `unimixins`; `FIReferenceTest` and `FloatingItemsMetadataTest` guard both. |
@@ -35,11 +34,11 @@ Current verification baseline:
 ```text
 ./gradlew check                     PASS  (unit tests + Spotless + Checkstyle + JaCoCo floor + gameTest compile)
 ./gradlew gameTestServer            PASS  11/11 checks, no known bugs remain
-Unit tests                          73 executed, 1 intentionally @Ignore'd (B-14, P3)
-JaCoCo (unit run)                   line 344/418 = 82.3%, branch 148/202 = 73.3%
+Unit tests                          72 executed, no skipped tests
+JaCoCo (unit run)                   line 341/415 = 82.2%, branch 151/208 = 72.6%
 ```
 
-The game test has no xfails. The only `@Ignore` is the `en_ud` localization check (B-14, P3); all P2 unit tests are normal checks.
+The game test has no xfails and the unit suite has no skipped tests.
 
 ---
 
@@ -83,9 +82,9 @@ localisation or API contract; **P3** = polish.
 | **B-09** | P2 | `EntityItemMixin.java:77-93` | **Fixed.** Ore-dictionary blacklists now match the whole entry and ignore metadata. | Game phase 4, normal check |
 | **B-10** | P1 | `FloatingItems.java:33, 36-50` | **Fixed.** The mod now registers on `FMLCommonHandler.instance().bus()`, so config reload and the login notification receive their events. | Game test `a ConfigChangedEvent on the FML bus re-syncs FIConfig (B-10)` (normal check) |
 | **B-11** | P2 | `FILang.java:186-1020` (all `text ==` checks) | **Fixed.** Translations are now ordinary map lookups from `.lang` resources; constructed keys work. | `FILangTest.constructedKeyIsTranslated` |
-| **B-12** | P3 | `FILang.java:57` | `de_alg` is not a Minecraft locale (the German locales are `de_de`, `de_at`, `de_ch`). It is an unnecessary alias. | `FILangTest.germanAlgeriaAliasStillMapsToGerman` (alias retained) |
+| **B-12** | P3 | `FILang.java:57` | **Fixed.** The `de_alg` alias was removed; it now falls back to English like any other unknown locale. | `FILangTest.germanAlgeriaFallsBackToEnglish` |
 | **B-13** | P2 | `FILang.java:978, 988, 1003, 1013` | **Fixed.** The generated Chinese resources use ASCII `%s`. | `FILangTest.chineseTablesUseAsciiPlaceholders` |
-| **B-14** | P3 | `assets/floatingitems/lang/en_ud.lang` | The upside-down English table is copied from ServerStop: display1/display3 say “ServerStop” and “1.7.x” rather than FloatingItems. | `FILangTest.upsideDownEnglishMentionsThisMod` (`@Ignore`) |
+| **B-14** | P3 | `assets/floatingitems/lang/en_ud.lang` | **Fixed.** The ServerStop text was replaced with the normal English FloatingItems messages; the placeholder check is now a normal test. | `FILangTest.enUdDoesNotUseServerStopText` |
 | **B-15** | P2 | `EntityItemMixin.java:72` | **Fixed.** Ore-dictionary names are trimmed and validated, not stripped of characters. | `FIConfigTest.blacklistSnapshotIgnoresNullEntriesAndNormalizesOreNames` |
 | **B-16** | P3 | `FILang.java:9` | **Fixed.** Locale normalization uses `Locale.ROOT`. | `FILangTest.languageCodeLowercasingIsLocaleIndependent` |
 | **B-17** | P2 | `EntityItemMixin.java:105-114` | **Fixed.** The eye-height/liquid-metadata comparison was removed; `Material.water` plus `World.isMaterialInBB` is the only water test. | Unit bbox test + game water/lava checks |
@@ -96,10 +95,10 @@ localisation or API contract; **P3** = polish.
 | **B-22** | P3 | `EntityItemMixin.java:38-39, 45-48, 61-63, 77-85` | **Fixed.** `applyFloating` reads the post-hook stack once and reuses it for the blacklist and water checks. | Covered by B-02/B-06/B-07 |
 | **B-23** | P2 | `FIConfig.java:23-31`; `EntityItemMixin.java:41-100` | **Fixed.** `FIConfig.blacklist` is a volatile immutable snapshot; unmodifiable lists/sets replace the public arrays. | `FIConfigTest.blacklistSnapshotIsImmutable` |
 | **B-24** | P3 | `FIConfig.java:197` | **Fixed.** Identity is registry + metadata only, with a matching hash. | `FIConfigTest.equalsIsReflexiveSymmetricTypeSafeAndHashCompatible` |
-| **B-25** | P3 | `FloatingItems.java:43-50` | The update message is sent on every login, every time, and the server language is global. There is no “show once per player” and no per-player locale; the new config disables the whole check rather than just the notification. | Static review |
-| **B-26** | P3 | `FIUpdateHandler.java:80` | Version comparison is exact after trimming and stripping a leading `v`/`V`. A build suffix or a non-`v` release prefix still produces a false “old version” message; there is no semantic-version comparison. | Static review |
+| **B-25** | P3 | `FloatingItems.java:43-50` | **Partly fixed.** The notification is now sent at most once per player per server session. Per-player locale and a “notification only” switch remain open. | `FloatingItemsEventTest.updateMessagesAreSentOncePerPlayer`; static review for locale |
+| **B-26** | P3 | `FIUpdateHandler.java:80` | **Partly fixed.** Trimming, `v` stripping and `+build` metadata are handled; semantic ordering/prerelease comparison remains open. | `FIUpdateHandlerTest.versionPrefixIsIgnored`, `buildMetadataDoesNotTriggerAnUpdate` |
 | **B-27** | P3 | `FIUpdateHandler.java:31-33, 40-42` | **Fixed in the P0 pass.** The `Scanner` text-file path was removed with the GitHub redirect rewrite; `HttpURLConnection` is disconnected in `finally`. | Static review + `FIUpdateHandlerTest` |
-| **B-28** | P3 | `FIConfig.java:105-108` | `getConfigElements()` dereferences `config` without a null check. It is only called from the GUI after `preInit`, but a client-side test or a reload race can NPE. | Static review |
+| **B-28** | P3 | `FIConfig.java:105-108` | **Fixed.** `getConfigElements()` returns an empty list when the config has not been initialized. | `FIConfigTest.configElementsAreEmptyBeforeInit` |
 | **B-29** | P3 | `FIConfig.java:56, 71, 79, 84` | `prop.comment = ...` is assigned after `Configuration.get` returns an existing property; the assignment does not mark the configuration dirty. On an existing file whose comments are missing, the comments are not written until some other value changes. | Static review of `Configuration.get`/`hasChanged` |
 
 ### 3.1 P0 change log (applied)
@@ -111,7 +110,7 @@ localisation or API contract; **P3** = polish.
 | B-10 | `FloatingItems.preInit` registers on `FMLCommonHandler.instance().bus()` instead of `MinecraftForge.EVENT_BUS`. |
 | B-19 | `FIReference.DEPENDENCIES` now declares `required-after:unimixins` (no trailing separator), and `mcmod.info` lists `unimixins` in `requiredMods`. |
 
-The game test has no xfails. The only remaining `@Ignore` test is the `en_ud` localization check (B-14, P3).
+The game test has no xfails. The unit suite no longer has any `@Ignore` markers (B-14 is fixed).
 
 ### 3.2 P1 change log (applied)
 
@@ -132,6 +131,17 @@ The game test has no xfails. The only remaining `@Ignore` test is the `en_ud` lo
 | B-23 | `FIConfig.blacklist` is an immutable `Blacklist` snapshot (unmodifiable item list and sets), replaced atomically. Public mutable arrays were removed. |
 | B-05/B-24 | `FIConfigItem` has final registry/metadata identity, `equals` and a matching `hashCode`. |
 
+### 3.4 P3 change log (applied cleanup)
+
+| ID | Change |
+|---|---|
+| B-12 | Removed the `de_alg` alias; it now falls back to English. |
+| B-14 | Replaced the `en_ud` ServerStop text with plain English FloatingItems messages (and normal placeholder checks). |
+| B-25/B-26 | Update notifications are sent once per player per session; `+build` metadata is ignored in version comparison. Per-player locale and full semver ordering remain open. |
+| B-28 | `getConfigElements()` is null-safe before initialization. |
+| D-02/D-03/D-04/D-05/D-09/D-11/D-12/D-15 | Dead APIs, dead keys, debug output and duplicated update-message styling removed. |
+| D-08 | Deferred: the late mixin config is build-generated and still needed by the manifest. |
+
 ---
 
 ## 4. Dead code
@@ -139,20 +149,20 @@ The game test has no xfails. The only remaining `@Ignore` test is the `en_ud` lo
 | ID | Location | Finding |
 |---|---|---|
 | **D-01** | `core/CoreMod.java` | **Removed.** `gradle.properties` sets `coreModClass = mixins.EarlyMixinsLoader`, the built manifest contains `FMLCorePlugin: ...EarlyMixinsLoader`, and `EarlyMixinsLoader` already implements `IEarlyMixinLoader`. `CoreMod` only called `MixinBootstrap.init()`, which UniMixins/MixinTweaker already handles. |
-| **D-02** | `FIConfig.java:38-40` | `forceSave()` has no callers. |
-| **D-03** | `FIConfig.java:117-122` | `FIConfigItem(ItemStack)` has no callers. The string constructor is the only production path; tests use the stack constructor only to pin the identity contract. Either remove it or expose it as the public API and use it. |
-| **D-04** | `FloatingItems.java:25-26` | `instance` is injected by FML but never read. Keep only if an addon/API depends on it; otherwise remove the annotation field. |
-| **D-05** | `FIConfigGUI.java:46-52` | `createConfigGui` and `hasConfigGui` are not part of 1.7.10 `IModGuiFactory` (it only has `initialize`, `mainConfigGuiClass`, `runtimeGuiCategories`, `getHandlerFor`). They are unreachable API surface. |
+| **D-02** | `FIConfig.java:38-40` | **Removed in the P3 pass.** Config sync saves itself; the unused method and test were deleted. |
+| **D-03** | `FIConfig.java:117-122` | **Removed in the P3 pass.** The unused `FIConfigItem(ItemStack)` constructor and helpers were deleted. |
+| **D-04** | `FloatingItems.java:25-26` | **Removed in the P3 pass.** The unused `@Mod.Instance` field was deleted. |
+| **D-05** | `FIConfigGUI.java:46-52` | **Removed in the P3 pass.** Only the 1.7.10 interface methods remain. |
 | **D-06** | `FIConfig.java:43, 65, 73, 81, 86, 90` | **Fixed in the P2 pass.** `propOrder` is applied with `setCategoryPropertyOrder` and the config is saved. |
 | **D-07** | `FIConfig.java:63` | **Removed in the P0 pass.** The always-true `blacklist != null` guard is gone; the array is assigned unconditionally. |
 | **D-08** | `src/main/resources/mixins.floatingitems.json` | Empty late-mixin config. It is still listed in the manifest as `MixinConfigs: mixins.floatingitems.json` by the buildscript, so it loads an empty config on every launch. Either remove the late config/manifest entry or move the mixin there and drop the early loader. |
-| **D-09** | `FILang.java:436-439, 506-514` | `floatingitems.one_second` (Greek) and `floatingitems.commands.cancel.usage/display1` (Pirate) are copied from ServerStop and never used by this mod. Delete them with the rest of the ServerStop text. |
+| **D-09** | `assets/floatingitems/lang/el_gr.lang`, `en_pt.lang` | **Removed in the P3 pass.** The dead ServerStop keys were deleted; tests assert they fall back to their keys. |
 | **D-10** | `FIConfig.java:177-195` | **Removed in the P2 pass** with the `FIConfigItem` rewrite. |
-| **D-11** | `FloatingItems.java:30` | `System.out.println("Pre Init")` debug leftover. Use the mod logger (or delete). |
-| **D-12** | `EarlyMixinsLoader.java:16-18` | `getASMTransformerClass()` returns `null`. FML tolerates it (`CoreModManager` null-checks), but the `IFMLLoadingPlugin` contract returns `String[]`; return an empty array for clarity. |
+| **D-11** | `FloatingItems.java:30` | **Removed in the P3 pass.** |
+| **D-12** | `EarlyMixinsLoader.java:16-18` | **Fixed in the P3 pass.** Returns an empty array and is covered by `MixinsTest`. |
 | **D-13** | `FIReference.java:9` | **Fixed in the P0 pass.** The dependency string no longer ends with a separator. |
-| **D-14** | `FIConfigGUI.java:36-44` | `runtimeGuiCategories`/`getHandlerFor` returning null is correct for “no runtime options”, but the empty `initialize` body and the two dead methods make the class look unfinished. Add a comment that null means “no runtime categories”. |
-| **D-15** | `FIUpdateHandler.java:49-78, 80-130` | The display3 and display1 branches duplicate the same chat-component construction (color, hover, click). Extract one helper, which also makes the null-message guard easy to test. |
+| **D-14** | `FIConfigGUI.java:36-44` | **Fixed in the P3 pass.** The empty/no-runtime-options contract is documented; the unreachable methods were already removed by D-05. |
+| **D-15** | `FIUpdateHandler.java:49-78, 80-130` | **Fixed in the P3 pass.** `styleUpdateMessage` centralizes the color/hover/click construction. |
 
 ---
 
@@ -162,13 +172,13 @@ The game test has no xfails. The only remaining `@Ignore` test is the `en_ud` lo
 |---|---|---|
 | **P-01** | `EntityItemMixin.java:41-100` | The entire blacklist decision runs per item entity per tick, including array scans, `Item.getIdFromItem`, ore-dictionary lookups and a regex. Cache the decision per `(Item, metadata)` (and per ore-dictionary membership) and invalidate on config reload. A `Long2ByteOpenHashMap` or a small immutable `Set<StackKey>` is enough; item IDs fit in an int, metadata in a short. |
 | **P-02** | `EntityItemMixin.java:74-77` | **Fixed in the P0 pass.** The list is stored in a local. The deeper `getOreIDs`/cache optimization remains future work. |
-| **P-03** | `EntityItemMixin.java:72` | `replaceAll` compiles a `Pattern` on every entry of every tick. Normalise the configured names once in `syncConfig`, or simply `trim()` and reject empty names; do not silently strip characters. |
+| **P-03** | `EntityItemMixin.java:72` | **Fixed in the P2/P3 pass.** Names are trimmed once into the immutable snapshot; no regex runs per tick. |
 | **P-04** | `EntityItemMixin.java:38-39, 45-48, 61-63, 77-85` | **Fixed in the P1 pass.** `applyFloating` reads the post-hook stack once and reuses it. |
 | **P-05** | `EntityItemMixin.java:61-63` | `Item.getIdFromItem(...)` does a registry map lookup per tick. The item pointer is stable; cache the decision or compare the cached `FIConfigItem.item` directly (with a null check). |
 | **P-06** | `EntityItemMixin.java:104, 110-113` | **Fixed in the P1 pass.** The direct `getBlock`/`getBlockMetadata` lookups were replaced by `World.isMaterialInBB` over the entity bounding box. |
 | **P-07** | `FIConfig.java:42-103` | **Fixed in the P2 pass.** `syncConfig` publishes one immutable `Blacklist` snapshot atomically. |
 | **P-08** | `FIUpdateHandler.java:29-45` | **Fixed in the P0 pass.** The check is asynchronous, has 5 s timeouts and is daemon-only; the two requests are still sequential inside the worker (acceptable for a background check). |
-| **P-09** | `FILang.java:5-180` | `getTranslations` walks a 30-branch if-chain on every call. Calls are rare (update messages, GUI title), so this is minor, but a `Map<String, LanguageTable>` or a `switch` on `serverLang` is both faster and far shorter. |
+| **P-09** | `FILang.java:5-180` | **Fixed in the P2 pass.** Map lookup over cached `.lang` tables. |
 | **P-10** | `FIConfig.java:96-102` | **Improved in the P0 pass.** Per-entry failures are logged and skipped; the outer backend failure logs the exception summary and resets defaults instead of dumping a stack trace. |
 
 ---
@@ -208,7 +218,7 @@ The game test has no xfails. The only remaining `@Ignore` test is the `en_ud` lo
 | **F-07** | Surface bobbing: a tiny idle oscillation or a stable resting height, instead of the current slow +0.0005 drift. | Cosmetic/behavioural parity with modern Minecraft. |
 | **F-08** | Public events: `ItemFloatCheckEvent` (cancelable) and `ItemFloatTickEvent` (post), plus `IFloatingItem` for item-specific opt-in/out. | Addon-friendly; lets other mods override the blacklist without touching `FIConfig`. |
 | **F-09** | Per-player localisation for the update message; ship `.lang` resources and use the client locale where possible. | The server-side `FILang` table is a workaround; the client can translate real keys. |
-| **F-10** | Update checker: opt-in, async, cached, with a connect/read timeout, semantic version comparison, and a “show once per player” flag. | **Partly applied in the P0 pass:** async, timeouts and null guards are done; caching, semantic comparison and show-once remain (B-25/B-26). |
+| **F-10** | Update checker: opt-in, async, cached, with a connect/read timeout, semantic version comparison, and a “show once per player” flag. | **Partly applied:** async/timeouts, build-metadata handling and show-once are done; caching and full semver ordering remain (B-25/B-26). |
 | **F-11** | Config GUI categories/lang keys, logical property order (`setCategoryPropertyOrder`), and a “reload” button/command. | Fixes D-06/B-20; makes the config usable on a live server. |
 | **F-12** | `/floatingitems status` and `/floatingitems reload` commands. | Operators can inspect the effective blacklist and reload without restarting. |
 | **F-13** | Debug counters (items evaluated, items floated, cache hits) behind a config flag. | Makes P-01 measurable in production. |
@@ -249,7 +259,7 @@ The game test has no xfails. The only remaining `@Ignore` test is the `en_ud` lo
 |---|---|
 | `addon.gradle.kts` | Applies JaCoCo, configures `Test` on a Java 8 toolchain, extends the test classpaths with `compileOnly` (Minecraft/Forge), creates `build/reports/jacoco/test`, enforces a line/branch floor, creates the `gameTest` source set, and registers `prepareGameTestServer`/`gameTestServer`/`jacocoGameTestReport`. |
 | `dependencies.gradle` | JUnit 4.13.2, Mockito 4.11.0, mockito-inline. Mockito 4 is the newest line that runs on Java 8; mockito-inline allows final Minecraft classes to be mocked. |
-| `src/test/java/...` | 8 test classes / 73 tests (1 `@Ignore` P3 marker: B-14). |
+| `src/test/java/...` | 8 test classes / 72 tests (no `@Ignore` markers). |
 | `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus a 5-phase assertion suite. |
 | `.github/workflows/game-test.yml` | Installs Java 8 + 25, runs `./gradlew test gameTestServer`, checks the `FLOATINGITEMS_GAMETEST_OK` marker, uploads the server log and coverage. |
 | `README.md` | Testing commands and the remaining P3 marker policy. |
@@ -258,7 +268,7 @@ The game test has no xfails. The only remaining `@Ignore` test is the `en_ud` lo
 
 | Class | What it covers |
 |---|---|
-| `FILangTest` | Every supported locale × every update/config key; placeholder preservation; aliases; fallback for null/unknown language; case-insensitivity; constructed keys; Chinese ASCII placeholders; Turkish-locale safety; one `@Ignore` remaining P3 (`en_ud` text). |
+| `FILangTest` | Every supported locale × every update/config key; placeholder preservation; aliases; fallback for null/unknown language; case-insensitivity; constructed keys; Chinese ASCII placeholders; Turkish-locale safety; no skipped tests. |
 | `FIConfigTest` | Defaults, logical property order, item/registry/ore-dict parsing, whitespace, optional metadata, malformed/unknown entries, deferred `resolveItems()` removal, all-invalid/backend-failure fallbacks, immutable snapshot behavior, `syncConfig(false)`, `forceSave`, `FIConfigItem(ItemStack)`, `toString`/`getStack`, equality/hash. |
 | `FIReferenceTest` | Mod id/name/version injection, accepted MC range, Forge + UniMixins dependencies, config file/category names. |
 | `FloatingItemsMetadataTest` | Reads the `@Mod` annotation and the shipped `mcmod.info` back, checks the GUI factory class name and the UniMixins requirement. |
@@ -299,9 +309,9 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 - In-game report: `build/reports/jacoco/gameTest/html`, generated after `gameTestServer` via
   `jacocoGameTestReport`. The JaCoCo agent is run with `classdumpdir=build/jacoco/gameTestClasses`, so the report
   reads exactly the bytes the agent instrumented. It is not merged into the unit report because a Forge 1.7.10
-  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 162/350 lines (46.3%)
-  and 58/168 branches (34.5%).
-- Regression floor: 65% line / 70% branch. The measured unit baseline is 82.3% line / 73.3% branch. The floor is a
+  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 163/348 lines (46.8%)
+  and 59/174 branches (33.9%).
+- Regression floor: 65% line / 70% branch. The measured unit baseline is 82.2% line / 72.6% branch. The floor is a
   guard, not a target; the mixin remains largely uncovered, and the update handler is covered by
   its opt-out/result/HTTP branches but not by a live network check.
 
@@ -343,11 +353,11 @@ The P0 batch below is implemented and covered by the tests in §9; P1 is also co
 12. **B-23** (done): publish an immutable blacklist snapshot; mutable arrays removed.
 13. **B-05/B-24** (done): stable `FIConfigItem` identity with `equals`/`hashCode`.
 
-### P3 — cleanup / features
+### P3 — cleanup / features (cleanup done; feature backlog remains)
 
-14. D-02…D-15 dead-code removal; empty late config, unused methods/keys (`CoreMod`/D-01 is done).
-15. R-01/R-02/R-04/R-05/R-09 extraction and policy tests.
-16. F-01…F-17 features, in particular registry-name config, wildcard metadata, per-player locale and the public API.
+14. D-02…D-15 cleanup is done except the build-generated empty late mixin config (D-08).
+15. R-01/R-02/R-04/R-05/R-09 extraction and policy tests are partly applied through `FIConfig.Blacklist` and the resource table; further policy extraction remains.
+16. F-01…F-17 features remain, in particular registry-name config, wildcard metadata, per-player locale and the public API.
 
 ---
 
@@ -366,17 +376,19 @@ The P0 batch below is implemented and covered by the tests in §9; P1 is also co
 | B-09 | Game phase 4, wool meta 0 vs 1 | **Fixed** |
 | B-10 | Game start, FML config event | **Fixed** |
 | B-11 | `FILangTest.constructedKeyIsTranslated` | **Fixed** |
-| B-12 | `FILangTest.germanAlgeriaAliasStillMapsToGerman` | Alias retained (P3) |
+| B-12 | `FILangTest.germanAlgeriaFallsBackToEnglish` | **Fixed** |
 | B-13 | `FILangTest.chineseTablesUseAsciiPlaceholders` | **Fixed** |
-| B-14 | `FILangTest.upsideDownEnglishMentionsThisMod` | `@Ignore` |
+| B-14 | `FILangTest.enUdDoesNotUseServerStopText` | **Fixed** |
 | B-15 | `FIConfigTest.blacklistSnapshotIgnoresNullEntriesAndNormalizesOreNames` | **Fixed** |
 | B-16 | `FILangTest.languageCodeLowercasingIsLocaleIndependent` | **Fixed** |
 | B-17/B-21 | `EntityItemMixinTest.waterCheckUsesTheEntityBoundingBox` + game water check | **Fixed** |
 | B-19 | `FIReferenceTest`, `FloatingItemsMetadataTest` | **Fixed** |
 | B-20 | `FIConfigTest.allPropertiesAreExposedToTheConfigGuiInTheConfiguredOrder` | **Fixed** |
 | B-23/B-24 | `FIConfigTest.blacklistSnapshotIsImmutable`, equality/hash test | **Fixed** |
+| B-25/B-26 | `FloatingItemsEventTest.updateMessagesAreSentOncePerPlayer`, `FIUpdateHandlerTest.buildMetadataDoesNotTriggerAnUpdate` | Partial |
+| B-28 | `FIConfigTest.configElementsAreEmptyBeforeInit` | **Fixed** |
 
-The remaining `@Ignore` is B-14 (P3); the game test has no xfail entries.
+No unit tests are skipped and the game test has no xfail entries.
 
 ---
 
@@ -403,15 +415,15 @@ All paths are under `build/rfg/minecraft-src/java` (RFG-decompiled 1.7.10 source
 
 | Measurement | Value |
 |---|---|
-| Unit tests | 73 run, 1 skipped (`@Ignore`), 0 failures |
+| Unit tests | 72 run, 0 skipped, 0 failures |
 | Game-test phases | 5 phases × 120 ticks, plus the synchronous config-bus check |
 | Game-test assertions | 11 checks; no known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
 | Game-test run time | ~47 s on the development machine (including Forge startup) |
-| JaCoCo unit line | 344/418 = 82.3% |
-| JaCoCo unit branch | 148/202 = 73.3% |
-| JaCoCo unit instruction | 1,377/1,596 = 86.3% |
+| JaCoCo unit line | 341/415 = 82.2% |
+| JaCoCo unit branch | 151/208 = 72.6% |
+| JaCoCo unit instruction | 1,368/1,585 = 86.3% |
 | JaCoCo floor | 65% line / 70% branch |
-| JaCoCo game-test run | 162/350 lines = 46.3%, 58/168 branches = 34.5% (short physics-only run) |
+| JaCoCo game-test run | 163/348 lines = 46.8%, 59/174 branches = 33.9% (short physics-only run) |
 | Test JVM | Java 8 toolchain (Temurin 8.0.432) |
 
 The game test prints per-phase Y values (`waterY`, `airY`, `lavaY`, `negativeY`) and the observed

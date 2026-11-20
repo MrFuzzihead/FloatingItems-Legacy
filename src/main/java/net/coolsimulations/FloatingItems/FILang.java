@@ -30,7 +30,6 @@ public final class FILang {
     static {
         Map<String, String> aliases = new HashMap<String, String>();
         aliases.put("de_at", "de_de");
-        aliases.put("de_alg", "de_de");
         aliases.put("de_ch", "de_de");
         aliases.put("en_au", "en_us");
         aliases.put("en_ca", "en_us");

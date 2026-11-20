@@ -1,4 +1,4 @@
-floatingitems.update.display1=¡ǝꞁqɐꞁᴉɐʌɐ ʍou sᴉ uoᴉsɹǝʌ ʍǝN ¡doʇS ɹǝʌɹǝS ɟo uoᴉsɹǝʌ pꞁo uɐ sᴉ sᴉɥ⟘
-floatingitems.update.display2=¡pɐoꞁuʍop oʇ ʞɔᴉꞁɔ ǝsɐǝꞁԀ
-floatingitems.update.display3=¡sǝɹnʇɐǝɟ ǝɹoɯ ɹoɟ ǝʇɐpdn ǝsɐǝꞁԀ ¡0⥝˙ㄥ˙⥝ uoᴉsɹǝΛ ʇɟɐɹɔǝuᴉW sʇɹoddns ɹǝᵷuoꞁ ou doʇS ɹǝʌɹǝS
-fi.configgui.title=ᵷᴉɟuoƆ sɯǝʇIᵷuᴉʇɐoꞁℲ
+floatingitems.update.display1=This is an old version of %s! Version %s is now available!
+floatingitems.update.display2=Please click to download!
+floatingitems.update.display3=%s no longer supports Minecraft Version %s! Please update to a newer Minecraft Version for more features!
+fi.configgui.title=FloatingItems Config

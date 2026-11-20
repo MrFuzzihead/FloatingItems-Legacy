@@ -46,7 +46,10 @@ public class MixinsTest {
 
     @Test
     public void loaderPointsAtTheEarlyMixinConfig() {
-        assertEquals("mixins.floatingitems.early.json", new EarlyMixinsLoader().getMixinConfig());
+        EarlyMixinsLoader loader = new EarlyMixinsLoader();
+        assertEquals("mixins.floatingitems.early.json", loader.getMixinConfig());
+        assertNotNull(loader.getASMTransformerClass());
+        assertEquals(0, loader.getASMTransformerClass().length);
     }
 
     private static Object read(Object target, String fieldName) throws Exception {

@@ -25,7 +25,7 @@ public class FIConfigGUI implements IModGuiFactory {
 
     @Override
     public void initialize(Minecraft minecraftInstance) {
-
+        // No client-only initialization is required.
     }
 
     @Override
@@ -35,20 +35,14 @@ public class FIConfigGUI implements IModGuiFactory {
 
     @Override
     public Set<RuntimeOptionCategoryElement> runtimeGuiCategories() {
+        // null means this mod has no runtime option categories.
         return null;
     }
 
     @Override
     public RuntimeOptionGuiHandler getHandlerFor(RuntimeOptionCategoryElement element) {
+        // No runtime options, so no handler exists.
         return null;
-    }
-
-    public GuiScreen createConfigGui(GuiScreen arg0) {
-        return new FIConfigGUIInner(arg0);
-    }
-
-    public boolean hasConfigGui() {
-        return true;
     }
 
 }
