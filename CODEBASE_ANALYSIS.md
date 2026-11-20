@@ -6,9 +6,8 @@ Scope: `src/main/java` (9 classes, ~1,500 LOC including the 1,024-line `FILang`)
 Baseline: Minecraft 1.7.10 / Forge 10.13.4.1614 / GTNH buildscript 2.0.34 / UniMixins 0.3.x.
 
 This document records the review. The P0-P3 bug-fix, cleanup and refactor batches are applied as noted in the
-tables below. The remaining work is the feature backlog in §7 and the B-25 follow-up (per-player locale and a
-notification-only mode). The text below keeps the original defect descriptions for context; each change log records
-what was actually changed.
+tables below. The remaining work is the feature backlog in §7; B-25 is closed by design. The text below keeps the
+original defect descriptions for context; each change log records what was actually changed.
 
 The companion test harness is described in §9 and wired through `addon.gradle.kts`, `dependencies.gradle`,
 `src/test/java`, `src/gameTest/java` and `.github/workflows/game-test.yml`. Known bugs use the `B-xx` ids below; the
@@ -96,7 +95,7 @@ localisation or API contract; **P3** = polish.
 | **B-22** | P3 | `EntityItemMixin.java:38-39, 45-48, 61-63, 77-85` | **Fixed.** `applyFloating` reads the post-hook stack once and reuses it for the blacklist and water checks. | Covered by B-02/B-06/B-07 |
 | **B-23** | P2 | `FIConfig.java:23-31`; `EntityItemMixin.java:41-100` | **Fixed.** `FIConfig.blacklist` is a volatile immutable snapshot; unmodifiable lists/sets replace the public arrays. | `FIConfigTest.blacklistSnapshotIsImmutable` |
 | **B-24** | P3 | `FIConfig.java:197` | **Fixed.** Identity is registry + metadata only, with a matching hash. | `FIConfigTest.equalsIsReflexiveSymmetricTypeSafeAndHashCompatible` |
-| **B-25** | P3 | `FloatingItems.java:43-50` | **Partly fixed.** The notification is now sent at most once per player per server session. Per-player locale and a “notification only” switch remain open. | `FloatingItemsEventTest.updateMessagesAreSentOncePerPlayer`; static review for locale |
+| **B-25** | P3 | `FloatingItems.java:43-50` | **Closed by design.** The notification is sent at most once per player per server session. Disabling the update check intentionally disables both the request and the notification, and messages deliberately use the configured server language rather than per-player locale. | `FloatingItemsEventTest.updateMessagesAreSentOncePerPlayer`; config tests cover the single opt-out |
 | **B-26** | P3 | `FIUpdateHandler.java:80` | **Fixed.** Numeric core, prerelease and `+build` metadata are compared; a remote older version no longer reports an update. | `FIUpdateHandlerTest.semanticVersionOrderingHandlesCoreAndPrerelease`, `buildMetadataDoesNotTriggerAnUpdate` |
 | **B-27** | P3 | `FIUpdateHandler.java:31-33, 40-42` | **Fixed in the P0 pass.** The `Scanner` text-file path was removed with the GitHub redirect rewrite; `HttpURLConnection` is disconnected in `finally`. | Static review + `FIUpdateHandlerTest` |
 | **B-28** | P3 | `FIConfig.java:105-108` | **Fixed.** `getConfigElements()` returns an empty list when the config has not been initialized. | `FIConfigTest.configElementsAreEmptyBeforeInit` |
@@ -138,7 +137,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 |---|---|
 | B-12 | Removed the `de_alg` alias; it now falls back to English. |
 | B-14 | Replaced the `en_ud` ServerStop text with plain English FloatingItems messages (and normal placeholder checks). |
-| B-25/B-26 | Update notifications are sent once per player per session; semantic core/prerelease and `+build` comparison are implemented. Per-player locale remains open on B-25. |
+| B-25/B-26 | Update notifications are sent once per player per session; semantic core/prerelease and `+build` comparison are implemented. B-25 is closed by design: one opt-out covers check and notification, and server-language messages are intentional. |
 | B-28 | `getConfigElements()` is null-safe before initialization. |
 | D-03/D-09/D-11/D-12/D-15 | Dead constructor/keys/debug/duplication removed. D-02/D-04/D-05 are retained as deprecated public API shims. |
 | D-08 | Kept: the empty late mixin config is required by the manifest. |
@@ -225,7 +224,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | **F-06** | Match modern water currents: items should be pushed by flowing water while floating, not just damped. | Test with a flowing-water channel; compare against 1.13+ behaviour. |
 | **F-07** | Surface bobbing: a tiny idle oscillation or a stable resting height, instead of the current slow +0.0005 drift. | Cosmetic/behavioural parity with modern Minecraft. |
 | **F-08** | Public events: `ItemFloatCheckEvent` (cancelable) and `ItemFloatTickEvent` (post), plus `IFloatingItem` for item-specific opt-in/out. | Addon-friendly; lets other mods override the blacklist without touching `FIConfig`. |
-| **F-09** | Per-player localisation for the update message; ship `.lang` resources and use the client locale where possible. | The server-side `FILang` table is a workaround; the client can translate real keys. |
+| **F-09** | Per-player localisation for the update message; ship `.lang` resources and use the client locale where possible. | **Not planned:** the mod is server-side and the configured server language is the supported behaviour; B-25 is closed by design. |
 | **F-10** | Update checker: opt-in, async, cached, with a connect/read timeout, semantic version comparison, and a “show once per player” flag. | **Mostly applied:** async/timeouts, semver, build metadata, result object and show-once are done; result caching remains. |
 | **F-11** | Config GUI categories/lang keys, logical property order (`setCategoryPropertyOrder`), and a “reload” button/command. | Fixes D-06/B-20; makes the config usable on a live server. |
 | **F-12** | `/floatingitems status` and `/floatingitems reload` commands. | Operators can inspect the effective blacklist and reload without restarting. |
@@ -368,7 +367,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 and P2 are
 
 14. D-03/D-09/D-11/D-12/D-15 cleanup done; D-08 intentionally kept; D-02/D-04/D-05 retained as deprecated public API shims.
 15. R-01/R-02/R-03/R-04/R-05/R-06/R-07/R-08/R-09/R-11/R-12/R-13/R-14/R-15 are applied.
-16. F-01 and the API part of F-08 are applied. F-02…F-17 remain, in particular whitelist mode, events and per-player locale.
+16. F-01 and the API part of F-08 are applied. F-02…F-17 remain, in particular whitelist mode and events; F-09 is not planned.
 
 ---
 
@@ -396,7 +395,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 and P2 are
 | B-19 | `FIReferenceTest`, `FloatingItemsMetadataTest` | **Fixed** |
 | B-20 | `FIConfigTest.allPropertiesAreExposedToTheConfigGuiInTheConfiguredOrder` | **Fixed** |
 | B-23/B-24 | `FIConfigTest.blacklistSnapshotIsImmutable`, equality/hash test | **Fixed** |
-| B-25 | `FloatingItemsEventTest.updateMessagesAreSentOncePerPlayer` | Partial: once per player; per-player locale requires a client language packet |
+| B-25 | `FloatingItemsEventTest.updateMessagesAreSentOncePerPlayer` | Closed by design: once per player; one opt-out and server-language messages are intentional |
 | B-26 | `FIUpdateHandlerTest.semanticVersionOrderingHandlesCoreAndPrerelease`, `buildMetadataDoesNotTriggerAnUpdate` | **Fixed** |
 | B-29 | `FIConfigTest.configCommentsArePersisted` | **Fixed** |
 | B-28 | `FIConfigTest.configElementsAreEmptyBeforeInit` | **Fixed** |
