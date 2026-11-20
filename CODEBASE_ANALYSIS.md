@@ -25,7 +25,7 @@ unit and in-game suites currently have no skipped or xfail tests.
 | Config | **Fixed (B-01/B-02/B-03).** Entries are parsed independently, missing metadata defaults to 0, unknown IDs are retained until postInit so other mods can finish registering their items, and unresolved entries are removed by `resolveItems()`. A backend failure falls back to safe defaults. Property order and comments are applied and saved (B-20/D-06). |
 | Localisation | **Fixed for P2 (B-11/B-13/B-16).** `FILang` now loads UTF-8 `.lang` resources through a map, so keys are no longer compared with `==`, Chinese uses ASCII `%s`, and lowercasing uses `Locale.ROOT`. The `en_ud` ServerStop text is fixed; B-14 is covered by a normal test. |
 | Dead code | `FIConfigItem(ItemStack)`, the old `propOrder` misuse, the ServerStop keys and `System.out` were removed. `FIConfig.forceSave`, `FloatingItems.instance` and two `FIConfigGUI` methods are retained as deprecated public-API shims; the empty late mixin config (D-08) is required by the manifest. |
-| Performance | Blacklists are now one immutable snapshot; the mixin does no regex normalization or mutable-array scanning. The remaining per-tick work is the item/registry/ore-dictionary lookup itself (P-01/P-05). |
+| Performance | **First perf pass applied.** Blacklists are one immutable snapshot with an item→metadata map and a per-snapshot `(Item, metadata)` decision cache; empty snapshots take a fast path. The mixin now does no per-tick blacklist scans, registry lookups after the first decision, or ore-dictionary queries after the first decision. |
 | Packaging | **Fixed (B-19).** `@Mod(dependencies)` and `mcmod.info` now declare `unimixins`; `FIReferenceTest` and `FloatingItemsMetadataTest` guard both. |
 | Testability | The redirect keeps vanilla control flow; the water-box helper is now unit-tested with a mocked `World`, and the blacklist/liquid rules are covered in-game. Extracting a pure `FloatingItemPolicy` remains a future refinement. |
 
@@ -34,8 +34,8 @@ Current verification baseline:
 ```text
 ./gradlew check                     PASS  (unit tests + Spotless + Checkstyle + JaCoCo floor + gameTest compile)
 ./gradlew gameTestServer            PASS  11/11 checks, no known bugs remain
-Unit tests                          75 executed, no skipped tests
-JaCoCo (unit run)                   line 404/488 = 82.8%, branch 200/274 = 73.0%
+Unit tests                          76 executed, no skipped tests
+JaCoCo (unit run)                   line 437/520 = 84.0%, branch 218/292 = 74.7%
 ```
 
 The game test has no xfails and the unit suite has no skipped tests.
@@ -177,11 +177,11 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 
 | ID | Location | Finding / fix |
 |---|---|---|
-| **P-01** | `EntityItemMixin.java:41-100` | The entire blacklist decision runs per item entity per tick, including array scans, `Item.getIdFromItem`, ore-dictionary lookups and a regex. Cache the decision per `(Item, metadata)` (and per ore-dictionary membership) and invalidate on config reload. A `Long2ByteOpenHashMap` or a small immutable `Set<StackKey>` is enough; item IDs fit in an int, metadata in a short. |
-| **P-02** | `EntityItemMixin.java:74-77` | **Fixed in the P0 pass.** The list is stored in a local. The deeper `getOreIDs`/cache optimization remains future work. |
+| **P-01** | `EntityItemMixin.java:41-100` | **Fixed in the first perf pass.** The immutable `Blacklist` builds an item→metadata map and lazily caches the final decision per `(Item, metadata)`; a config reload creates a fresh snapshot/cache. Empty snapshots skip caching entirely. |
+| **P-02** | `EntityItemMixin.java:74-77` | **Fixed.** Ore-dictionary results are folded into the per-stack decision cache; no per-tick `getOres` loop remains. |
 | **P-03** | `EntityItemMixin.java:72` | **Fixed in the P2/P3 pass.** Names are trimmed once into the immutable snapshot; no regex runs per tick. |
 | **P-04** | `EntityItemMixin.java:38-39, 45-48, 61-63, 77-85` | **Fixed in the P1 pass.** `applyFloating` reads the post-hook stack once and reuses it. |
-| **P-05** | `EntityItemMixin.java:61-63` | `Item.getIdFromItem(...)` does a registry map lookup per tick. The item pointer is stable; cache the decision or compare the cached `FIConfigItem.item` directly (with a null check). |
+| **P-05** | `EntityItemMixin.java:61-63` | **Fixed.** `Item.getIdFromItem` is only reached on the first uncached decision for an item/metadata pair; subsequent ticks hit the snapshot cache. |
 | **P-06** | `EntityItemMixin.java:104, 110-113` | **Fixed in the P1 pass.** The direct `getBlock`/`getBlockMetadata` lookups were replaced by `World.isMaterialInBB` over the entity bounding box. |
 | **P-07** | `FIConfig.java:42-103` | **Fixed in the P2 pass.** `syncConfig` publishes one immutable `Blacklist` snapshot atomically. |
 | **P-08** | `FIUpdateHandler.java:29-45` | **Fixed in the P0 pass.** The check is asynchronous, has 5 s timeouts and is daemon-only; the two requests are still sequential inside the worker (acceptable for a background check). |
@@ -266,7 +266,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 |---|---|
 | `addon.gradle.kts` | Applies JaCoCo, configures `Test` on a Java 8 toolchain, extends the test classpaths with `compileOnly` (Minecraft/Forge), creates `build/reports/jacoco/test`, enforces a line/branch floor, creates the `gameTest` source set, and registers `prepareGameTestServer`/`gameTestServer`/`jacocoGameTestReport`. |
 | `dependencies.gradle` | JUnit 4.13.2, Mockito 4.11.0, mockito-inline. Mockito 4 is the newest line that runs on Java 8; mockito-inline allows final Minecraft classes to be mocked. |
-| `src/test/java/...` | 8 test classes / 75 tests (no `@Ignore` markers). |
+| `src/test/java/...` | 8 test classes / 76 tests (no `@Ignore` markers). |
 | `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus a 5-phase assertion suite. |
 | `.github/workflows/game-test.yml` | Installs Java 8 + 25, runs `./gradlew test gameTestServer`, checks the `FLOATINGITEMS_GAMETEST_OK` marker, uploads the server log and coverage. |
 | `README.md` | Testing commands and the remaining P3 marker policy. |
@@ -276,7 +276,7 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | Class | What it covers |
 |---|---|
 | `FILangTest` | Every supported locale × every update/config key; placeholder preservation; aliases; fallback for null/unknown language; case-insensitivity; constructed keys; Chinese ASCII placeholders; Turkish-locale safety; no skipped tests. |
-| `FIConfigTest` | Defaults, logical property order, item/registry/ore-dict parsing, whitespace, optional metadata, malformed/unknown entries, deferred `resolveItems()` removal, all-invalid/backend-failure fallbacks, immutable snapshot behavior, `syncConfig(false)`, `forceSave`, `FIConfigItem(ItemStack)`, `toString`/`getStack`, equality/hash. |
+| `FIConfigTest` | Defaults, logical property order, parsing, whitespace, optional metadata, malformed/unknown entries, deferred resolution, all-invalid/backend-failure fallbacks, immutable snapshot, per-snapshot decision cache/empty fast path, equality/hash. |
 | `FIReferenceTest` | Mod id/name/version injection, accepted MC range, Forge + UniMixins dependencies, config file/category names. |
 | `FloatingItemsMetadataTest` | Reads the `@Mod` annotation and the shipped `mcmod.info` back, checks the GUI factory class name and the UniMixins requirement. |
 | `MixinsTest` | One early mixin named `EntityItemMixin`, phase EARLY, early config path. |
@@ -316,9 +316,9 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 - In-game report: `build/reports/jacoco/gameTest/html`, generated after `gameTestServer` via
   `jacocoGameTestReport`. The JaCoCo agent is run with `classdumpdir=build/jacoco/gameTestClasses`, so the report
   reads exactly the bytes the agent instrumented. It is not merged into the unit report because a Forge 1.7.10
-  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 163/421 lines (38.7%)
-  and 59/240 branches (24.6%).
-- Regression floor: 65% line / 70% branch. The measured unit baseline is 82.8% line / 73.0% branch. The floor is a
+  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 190/453 lines (41.9%)
+  and 72/258 branches (27.9%)
+- Regression floor: 65% line / 70% branch. The measured unit baseline is 84.0% line / 74.7% branch. The floor is a
   guard, not a target; the mixin remains largely uncovered, and the update handler is covered by
   its opt-out/result/HTTP branches but not by a live network check.
 
@@ -424,15 +424,15 @@ All paths are under `build/rfg/minecraft-src/java` (RFG-decompiled 1.7.10 source
 
 | Measurement | Value |
 |---|---|
-| Unit tests | 75 run, 0 skipped, 0 failures |
+| Unit tests | 76 run, 0 skipped, 0 failures |
 | Game-test phases | 5 phases × 120 ticks, plus the synchronous config-bus check |
 | Game-test assertions | 11 checks; no known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
 | Game-test run time | ~47 s on the development machine (including Forge startup) |
-| JaCoCo unit line | 404/488 = 82.8% |
-| JaCoCo unit branch | 200/274 = 73.0% |
-| JaCoCo unit instruction | 1,618/1,862 = 86.9% |
+| JaCoCo unit line | 437/520 = 84.0% |
+| JaCoCo unit branch | 218/292 = 74.7% |
+| JaCoCo unit instruction | 1,773/2,019 = 87.8% |
 | JaCoCo floor | 65% line / 70% branch |
-| JaCoCo game-test run | 163/421 lines = 38.7%, 59/240 branches = 24.6% (short physics-only run) |
+| JaCoCo game-test run | 190/453 lines = 41.9%, 72/258 branches = 27.9% (short physics-only run) |
 | Test JVM | Java 8 toolchain (Temurin 8.0.432) |
 
 The game test prints per-phase Y values (`waterY`, `airY`, `lavaY`, `negativeY`) and the observed

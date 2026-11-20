@@ -453,6 +453,35 @@ public class FIConfigTest {
     }
 
     @Test
+    public void blacklistDecisionCacheIsScopedToTheSnapshot() {
+        FIConfig.Blacklist first = new FIConfig.Blacklist(
+            Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),
+            Collections.<Integer>emptySet(),
+            Collections.<String>emptyList());
+        ItemStack stick0 = new ItemStack(MinecraftTestBootstrap.stick(), 1, 0);
+
+        assertTrue(first.isBlacklisted(stick0));
+        assertTrue(first.isBlacklisted(stick0));
+        assertEquals(1, first.cachedDecisionCount());
+
+        assertFalse(first.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 1)));
+        assertEquals(2, first.cachedDecisionCount());
+
+        FIConfig.Blacklist registryOnly = new FIConfig.Blacklist(
+            Collections.<FIConfig.FIConfigItem>emptyList(),
+            Collections.singleton(280),
+            Collections.<String>emptyList());
+        assertTrue(registryOnly.isBlacklisted(stick0));
+        assertTrue(registryOnly.isBlacklisted(stick0));
+        assertEquals(1, registryOnly.cachedDecisionCount());
+
+        FIConfig.Blacklist second = FIConfig.Blacklist.empty();
+        assertFalse(second.isBlacklisted(stick0));
+        assertEquals("empty snapshots should not grow a cache", 0, second.cachedDecisionCount());
+        assertTrue(first.isBlacklisted(stick0));
+    }
+
+    @Test
     public void blacklistSnapshotIsImmutable() {
         FIConfig.Blacklist snapshot = new FIConfig.Blacklist(
             Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),

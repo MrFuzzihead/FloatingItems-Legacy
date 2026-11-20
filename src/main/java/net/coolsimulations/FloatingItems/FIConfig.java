@@ -5,9 +5,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -189,8 +192,10 @@ public class FIConfig {
             Collections.<String>emptyList());
 
         private final List<FIConfigItem> items;
+        private final Map<Item, Set<Integer>> itemBlacklist;
         private final Set<Integer> registryItems;
         private final Set<String> oreDict;
+        private final Map<Item, Map<Integer, Boolean>> decisionCache = new ConcurrentHashMap<Item, Map<Integer, Boolean>>();
 
         public Blacklist(Collection<FIConfigItem> items, Collection<Integer> registryItems,
             Collection<String> oreDict) {
@@ -204,6 +209,26 @@ public class FIConfig {
                 }
             }
             this.items = Collections.unmodifiableList(itemCopy);
+
+            Map<Item, Set<Integer>> blacklistedMetas = new HashMap<Item, Set<Integer>>();
+            for (FIConfigItem entry : itemCopy) {
+                Item item = entry.getItem();
+                if (item == null) {
+                    continue;
+                }
+                Set<Integer> metas = blacklistedMetas.get(item);
+                if (metas == null) {
+                    metas = new HashSet<Integer>();
+                    blacklistedMetas.put(item, metas);
+                }
+                metas.add(entry.getMeta());
+            }
+            Map<Item, Set<Integer>> immutableItemBlacklist = new HashMap<Item, Set<Integer>>();
+            for (Map.Entry<Item, Set<Integer>> entry : blacklistedMetas.entrySet()) {
+                immutableItemBlacklist.put(entry.getKey(), Collections.unmodifiableSet(entry.getValue()));
+            }
+            this.itemBlacklist = Collections.unmodifiableMap(immutableItemBlacklist);
+
             this.registryItems = Collections.unmodifiableSet(
                 new HashSet<Integer>(registryItems == null ? Collections.<Integer>emptySet() : registryItems));
 
@@ -248,13 +273,32 @@ public class FIConfig {
             Item item = stack.getItem();
             int meta = stack.getItemDamage();
 
-            for (FIConfigItem entry : items) {
-                if (entry == null || entry.getItem() == null) {
-                    continue;
-                }
-                if (entry.getItem() == item && entry.getMeta() == meta) {
-                    return true;
-                }
+            if (itemBlacklist.isEmpty() && registryItems.isEmpty() && oreDict.isEmpty()) {
+                return false;
+            }
+
+            Map<Integer, Boolean> itemCache = decisionCache.get(item);
+            if (itemCache == null) {
+                Map<Integer, Boolean> newCache = new ConcurrentHashMap<Integer, Boolean>();
+                Map<Integer, Boolean> previous = decisionCache.putIfAbsent(item, newCache);
+                itemCache = previous == null ? newCache : previous;
+            }
+
+            Boolean cached = itemCache.get(meta);
+            if (cached != null) {
+                return cached;
+            }
+
+            boolean result = computeBlacklisted(item, meta);
+            Boolean previous = itemCache.putIfAbsent(meta, result);
+            return previous == null ? result : previous;
+        }
+
+        private boolean computeBlacklisted(Item item, int meta) {
+
+            Set<Integer> metas = itemBlacklist.get(item);
+            if (metas != null && metas.contains(meta)) {
+                return true;
             }
 
             if (registryItems.contains(Item.getIdFromItem(item))) {
@@ -274,6 +318,14 @@ public class FIConfig {
             }
 
             return false;
+        }
+
+        int cachedDecisionCount() {
+            int count = 0;
+            for (Map<Integer, Boolean> itemCache : decisionCache.values()) {
+                count += itemCache.size();
+            }
+            return count;
         }
     }
 
