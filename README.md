@@ -47,15 +47,16 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 132 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
-| `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
-| `./gradlew gameTestServer` | boots a real dedicated server, runs 30 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
+| `./gradlew test` | 135 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor, and the gameTest/smokeTest compile |
+| `./gradlew gameTestServer` | boots a real dedicated server, runs 32 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
+| `./gradlew smokeTestServer` | boots a real dedicated server without the game-test mod, verifies startup, then exits |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
 
 The game test is a non-shipped `@Mod` in `src/gameTest/java`; it is only on the classpath for `gameTestServer` (or
 `-PgameTest`) and never reaches the published jar. It covers what cannot be tested headlessly: a real Forge server,
 real `EntityItem` physics, negative coordinates, the item filter rules, source vs flowing water, partial submersion,
-chunk borders, item NBT, merge/despawn, config reload, dimension scopes, and the event-bus wiring.
+chunk borders, item NBT, merge/despawn, config reload, dimension scopes, debug counters, and the event-bus wiring.
 
 The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites currently have no skipped or xfail tests. Remaining feature work is tracked in
 [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md).
@@ -80,6 +81,7 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 | Floating Horizontal Damping | horizontal motion multiplier; default `0.95` |
 | Floating Maximum Upward Speed | upward speed cap; default `0.4` |
 | Floating Surface Offset | extra height above the liquid surface where buoyancy still applies; default `0.0` |
+| Enable Debug Counters | enables process-wide evaluation/float/cache counters; default `false` |
 | Default Server language | locale code, e.g. `en_us` |
 | Disable FloatingItems Update Check | boolean - disables both the GitHub request and the message |
 

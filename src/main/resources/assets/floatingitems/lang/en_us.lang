@@ -23,3 +23,4 @@ fi.config.biomeFilterMode=Biome Filter Mode
 fi.config.floatingBiomes=Floating Biomes
 fi.config.modFilterMode=Mod ID Filter Mode
 fi.config.floatingModIds=Floating Mod IDs
+fi.config.debugCounters=Enable Debug Counters

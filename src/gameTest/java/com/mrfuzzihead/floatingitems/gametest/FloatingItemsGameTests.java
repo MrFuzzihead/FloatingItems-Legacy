@@ -33,6 +33,7 @@ import com.mrfuzzihead.floatingitems.FIReference;
 import com.mrfuzzihead.floatingitems.ItemFilterMode;
 import com.mrfuzzihead.floatingitems.ScopeMode;
 import com.mrfuzzihead.floatingitems.ScopeRules;
+import com.mrfuzzihead.floatingitems.api.DebugCounters;
 import com.mrfuzzihead.floatingitems.api.ItemFloatCheckEvent;
 import com.mrfuzzihead.floatingitems.api.ItemFloatTickEvent;
 
@@ -135,6 +136,7 @@ public final class FloatingItemsGameTests {
     private static EntityItem noBuoyancyItem;
     private static EntityItem flowingChannelItem;
     private static EntityItem scopeItem;
+    private static EntityItem debugItem;
     private static ItemStack nbtStack;
     private static double waterStartY;
     private static double negativeStartY;
@@ -150,6 +152,7 @@ public final class FloatingItemsGameTests {
     private static double noBuoyancyStartY;
     private static double flowingChannelStartX;
     private static double scopeStartY;
+    private static double debugStartY;
     private static ForgeChunkManager.Ticket chunkTicket;
 
     private FloatingItemsGameTests() {}
@@ -531,6 +534,19 @@ public final class FloatingItemsGameTests {
                 scopeStartY = scopeItem.posY;
                 break;
 
+            case 17:
+                resetItemBlacklistConfig();
+                FIConfig.debugCounters = true;
+                DebugCounters.setEnabled(true);
+                DebugCounters.reset();
+                FIConfig.blacklist = new FIConfig.Blacklist(
+                    Collections.singletonList(configItem("{280}(1)")),
+                    Collections.<Integer>emptySet(),
+                    Collections.<String>emptyList());
+                debugItem = spawn(0.5D, WATER_START_Y, 0.5D, new ItemStack(Items.stick), 0.0D);
+                debugStartY = debugItem.posY;
+                break;
+
             default:
                 finish();
                 break;
@@ -703,6 +719,15 @@ public final class FloatingItemsGameTests {
                 check(
                     "a dimension-whitelist mismatch suppresses floating",
                     scopeItem.isEntityAlive() && scopeItem.posY <= scopeStartY + 0.2D);
+                break;
+
+            case 17:
+                check(
+                    "debug counters count evaluated and floated items",
+                    DebugCounters.getItemsEvaluated() > 0 && DebugCounters.getItemsFloated() > 0
+                        && debugItem.isEntityAlive()
+                        && debugItem.posY > debugStartY + 0.2D);
+                check("debug counters count item-filter cache hits", DebugCounters.getCacheHits() > 0);
                 break;
 
             default:

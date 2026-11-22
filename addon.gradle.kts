@@ -6,7 +6,9 @@
 //     bytecode and Mockito 4.x is the newest Mockito that still runs there;
 //   * JaCoCo line/branch reports plus a regression floor wired into `check`;
 //   * a non-shipped in-game test mod (src/gameTest/java) and a `gameTestServer` task that boots a real dedicated
-//     server, runs assertions against real EntityItem physics, and exits with the result.
+//     server, runs assertions against real EntityItem physics, and exits with the result;
+//   * a tiny non-shipped smoke mod and `smokeTestServer` task that boots a normal dedicated server without the
+//     game-test mod.
 //
 // The layout and the reasoning mirror MrFuzzihead/PeripheralsPlusPlus and MrFuzzihead/OpenPeripheral. The game
 // test mod is only added to the classpath for `gameTestServer` (or `-PgameTest`), so it never reaches the
@@ -197,8 +199,22 @@ gameTestSourceSet.runtimeClasspath += mainSourceSet.runtimeClasspath
 gameTestSourceSet.compileClasspath = gameTestSourceSet.compileClasspath
     .filter { !it.name.contains("jabel") }
 
+val smokeTestSourceSet = project.extensions.getByType(SourceSetContainer::class.java).create("smokeTest")
+configurations.getByName(smokeTestSourceSet.compileClasspathConfigurationName)
+    .extendsFrom(configurations.getByName("compileClasspath"))
+configurations.getByName(smokeTestSourceSet.runtimeClasspathConfigurationName)
+    .extendsFrom(configurations.getByName("runtimeClasspath"))
+smokeTestSourceSet.compileClasspath += mainSourceSet.output
+smokeTestSourceSet.compileClasspath += mainSourceSet.compileClasspath
+smokeTestSourceSet.runtimeClasspath += mainSourceSet.output
+smokeTestSourceSet.runtimeClasspath += mainSourceSet.runtimeClasspath
+smokeTestSourceSet.compileClasspath = smokeTestSourceSet.compileClasspath
+    .filter { !it.name.contains("jabel") }
+
 val isGameTestRun = project.hasProperty("gameTest") ||
     gradle.startParameter.taskNames.any { it.contains("gameTestServer") }
+val isSmokeTestRun = project.hasProperty("smokeTest") ||
+    gradle.startParameter.taskNames.any { it.contains("smokeTestServer") }
 
 if (isGameTestRun) {
     // Only our package is instrumented. The file is dumped when the game exits, so a crashed or hung run simply
@@ -228,8 +244,19 @@ if (isGameTestRun) {
     }
 }
 
+if (isSmokeTestRun) {
+    tasks.withType<JavaExec>().configureEach {
+        if (name.startsWith("runServer")) {
+            classpath += smokeTestSourceSet.output
+            systemProperty("floatingitems.smokeTest", "true")
+            systemProperty("floatingitems.skipUpdateCheck", "true")
+        }
+    }
+}
+
 tasks.named("check").configure {
     dependsOn(gameTestSourceSet.classesTaskName)
+    dependsOn(smokeTestSourceSet.classesTaskName)
 }
 
 // Deterministic run directory: accept the EULA, use a throwaway flat world and disable the vanilla watchdog.
@@ -274,6 +301,49 @@ tasks.named("runServer").configure {
     // `org.gradle.parallel` is enabled. Without this, prepareGameTestServer and runServer can run at the same
     // time, deleting the world/class dump while the server is starting.
     mustRunAfter(tasks.named("prepareGameTestServer"))
+}
+
+tasks.register("prepareSmokeTestServer") {
+    group = "verification"
+    description = "Prepares run/server for a dedicated-server smoke boot without the game-test mod"
+
+    val runDirectory = project.layout.projectDirectory.dir(
+        (findProperty("runServerWorkingDirectory") as String?) ?: "run/server"
+    )
+    val eulaFile = runDirectory.file("eula.txt").asFile
+    val propertiesFile = runDirectory.file("server.properties").asFile
+    val worldDirectory = runDirectory.dir("smokeTestWorld").asFile
+
+    doLast {
+        eulaFile.parentFile.mkdirs()
+        eulaFile.writeText("eula=true\n")
+        propertiesFile.writeText(
+            """
+            # Written by ./gradlew smokeTestServer - do not edit; the task rewrites this file.
+            level-name=smokeTestWorld
+            level-type=FLAT
+            online-mode=false
+            allow-nether=false
+            spawn-protection=0
+            difficulty=0
+            max-tick-time=-1
+            view-distance=6
+            motd=FloatingItems smoke test
+            """.trimIndent() + "\n"
+        )
+        worldDirectory.deleteRecursively()
+    }
+}
+
+tasks.named("runServer").configure {
+    mustRunAfter(tasks.named("prepareSmokeTestServer"))
+}
+
+tasks.register("smokeTestServer") {
+    group = "verification"
+    description = "Boots a dedicated server without the game-test mod, verifies startup, and exits"
+    dependsOn("prepareSmokeTestServer")
+    dependsOn("runServer")
 }
 
 tasks.register("gameTestServer") {

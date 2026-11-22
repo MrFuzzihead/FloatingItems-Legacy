@@ -53,6 +53,15 @@ jobs:
           grep -hq "FLOATINGITEMS_GAMETEST_OK" run/server/logs/*.log
           ! grep -hq "FLOATINGITEMS_GAMETEST_FAILED" run/server/logs/*.log
 
+      - name: Run the dedicated-server smoke test
+        run: ./gradlew smokeTestServer --stacktrace
+
+      - name: Check the smoke-test marker
+        run: |
+          test -f run/server/logs/latest.log || { echo "no smoke-test log was written"; exit 1; }
+          grep -hq "FLOATINGITEMS_SMOKE_OK" run/server/logs/latest.log
+          ! grep -hq "FLOATINGITEMS_SMOKE_FAILED" run/server/logs/latest.log
+
       - name: Upload the server log
         if: always()
         uses: actions/upload-artifact@v4

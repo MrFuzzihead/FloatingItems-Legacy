@@ -81,6 +81,8 @@ public class FIConfigParserTest {
                 FIConfigParser.SURFACE_OFFSET_KEY,
                 BuoyancySettings.DEFAULT_SURFACE_OFFSET)
             .set(0.1D);
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.DEBUG_COUNTERS_KEY, false)
+            .set(true);
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.SERVER_LANGUAGE_KEY, "en_us")
             .set("de_de");
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.UPDATE_CHECK_KEY, false)
@@ -116,6 +118,7 @@ public class FIConfigParserTest {
         assertTrue(
             parsed.getScopeRules()
                 .allows(0, "Desert", "minecraft"));
+        assertTrue(parsed.hasDebugCounters());
         assertEquals("de_de", parsed.getServerLang());
         assertTrue(parsed.isUpdateCheckDisabled());
         assertEquals(new java.util.HashSet<Integer>(Arrays.asList(280, 4)), parsed.getRegistryItems());
@@ -171,6 +174,7 @@ public class FIConfigParserTest {
                 FIConfigParser.HORIZONTAL_DAMPING_KEY,
                 FIConfigParser.MAX_UPWARD_SPEED_KEY,
                 FIConfigParser.SURFACE_OFFSET_KEY,
+                FIConfigParser.DEBUG_COUNTERS_KEY,
                 FIConfigParser.SERVER_LANGUAGE_KEY,
                 FIConfigParser.UPDATE_CHECK_KEY),
             parsed.getPropertyOrder());

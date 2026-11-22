@@ -28,6 +28,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import com.mrfuzzihead.floatingitems.api.DebugCounters;
 import com.mrfuzzihead.floatingitems.testutil.MinecraftTestBootstrap;
 
 import cpw.mods.fml.client.config.IConfigElement;
@@ -54,6 +55,7 @@ public class FIConfigTest {
     private static final String HORIZONTAL_DAMPING = "Floating Horizontal Damping";
     private static final String MAX_UPWARD_SPEED = "Floating Maximum Upward Speed";
     private static final String SURFACE_OFFSET = "Floating Surface Offset";
+    private static final String DEBUG_COUNTERS = "Enable Debug Counters";
     private static final String SERVER_LANGUAGE = "Default Server language";
     private static final String DISABLE_UPDATE_CHECK = "Disable FloatingItems Update Check";
 
@@ -72,6 +74,9 @@ public class FIConfigTest {
         FIConfig.scopeRules = ScopeRules.defaults();
         FIConfig.liquidRules = LiquidRules.defaults();
         FIConfig.buoyancy = BuoyancySettings.defaults();
+        FIConfig.debugCounters = false;
+        DebugCounters.setEnabled(false);
+        DebugCounters.reset();
         FIConfig.serverLang = null;
         FIConfig.disableUpdateCheck = false;
         FIConfig.config = null;
@@ -98,6 +103,7 @@ public class FIConfigTest {
         assertEquals(BuoyancySettings.DEFAULT_HORIZONTAL_DAMPING, FIConfig.buoyancy.getHorizontalDamping(), 1.0E-9D);
         assertEquals(BuoyancySettings.DEFAULT_MAX_UPWARD_SPEED, FIConfig.buoyancy.getMaxUpwardSpeed(), 1.0E-9D);
         assertEquals(BuoyancySettings.DEFAULT_SURFACE_OFFSET, FIConfig.buoyancy.getSurfaceOffset(), 1.0E-9D);
+        assertFalse(FIConfig.debugCounters);
         assertTrue(
             FIConfig.liquidRules.getAllowlist()
                 .isEmpty());
@@ -140,7 +146,7 @@ public class FIConfigTest {
         FIConfig.init(configFile());
 
         List<IConfigElement> elements = FIConfig.getConfigElements();
-        assertEquals(19, elements.size());
+        assertEquals(20, elements.size());
 
         List<String> names = new java.util.ArrayList<String>();
         for (IConfigElement element : elements) {
@@ -173,6 +179,7 @@ public class FIConfigTest {
                 HORIZONTAL_DAMPING,
                 MAX_UPWARD_SPEED,
                 SURFACE_OFFSET,
+                DEBUG_COUNTERS,
                 SERVER_LANGUAGE,
                 DISABLE_UPDATE_CHECK),
             names);
@@ -194,6 +201,7 @@ public class FIConfigTest {
         assertTrue(contents.contains("Maximum upward speed"));
         assertTrue(contents.contains("Dimension scope"));
         assertTrue(contents.contains("Mod-ID scope"));
+        assertTrue(contents.contains("Enable process-wide item evaluation"));
     }
 
     @Test
@@ -432,6 +440,7 @@ public class FIConfigTest {
             Collections.singletonList("Ocean"),
             ScopeMode.WHITELIST,
             Collections.singletonList("minecraft"));
+        FIConfig.debugCounters = true;
         FIConfig.serverLang = "de_de";
         FIConfig.disableUpdateCheck = true;
         FIConfig.config = mock(Configuration.class);
@@ -459,6 +468,7 @@ public class FIConfigTest {
         assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
         assertEquals(ScopeMode.ALL, FIConfig.scopeRules.getDimensionMode());
         assertEquals(BuoyancySettings.DEFAULT_LIFT, FIConfig.buoyancy.getLift(), 1.0E-9D);
+        assertFalse(FIConfig.debugCounters);
         assertTrue(
             FIConfig.liquidRules.getAllowlist()
                 .isEmpty());

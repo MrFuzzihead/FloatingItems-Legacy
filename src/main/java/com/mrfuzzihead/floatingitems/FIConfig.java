@@ -13,6 +13,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.mrfuzzihead.floatingitems.api.BlacklistEntry;
+import com.mrfuzzihead.floatingitems.api.DebugCounters;
 
 import cpw.mods.fml.client.config.IConfigElement;
 
@@ -39,6 +40,9 @@ public class FIConfig {
 
     /** Immutable buoyancy tuning published alongside the blacklist snapshot. */
     public static volatile BuoyancySettings buoyancy = BuoyancySettings.defaults();
+
+    /** Whether the optional debug counters are active. */
+    public static volatile boolean debugCounters;
 
     public static String serverLang;
 
@@ -78,6 +82,8 @@ public class FIConfig {
             scopeRules = parsed.getScopeRules();
             liquidRules = parsed.getLiquidRules();
             buoyancy = parsed.getBuoyancy();
+            debugCounters = parsed.hasDebugCounters();
+            DebugCounters.setEnabled(debugCounters);
             serverLang = parsed.getServerLang();
             disableUpdateCheck = parsed.isUpdateCheckDisabled();
         } catch (final Exception e) {
@@ -94,6 +100,8 @@ public class FIConfig {
         scopeRules = ScopeRules.defaults();
         liquidRules = LiquidRules.defaults();
         buoyancy = BuoyancySettings.defaults();
+        debugCounters = false;
+        DebugCounters.setEnabled(false);
         serverLang = "en_us";
         disableUpdateCheck = false;
     }

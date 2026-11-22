@@ -58,7 +58,7 @@ public class FIUpdateHandlerTest {
 
     @Test
     public void resultObjectNoneClearsPreviousState() {
-        FIUpdateHandler.processUpdateData("0.0.0-test", "notes");
+        FIUpdateHandler.processUpdateData("999999999.0.0-test", "notes");
         assertTrue(FIUpdateHandler.isOld);
 
         FIUpdateHandler.processResult(UpdateCheckResult.NONE);
@@ -70,10 +70,10 @@ public class FIUpdateHandlerTest {
 
     @Test
     public void localizedComponentContainsTheFormattedArguments() {
-        FIUpdateHandler.processUpdateData("0.0.0-test", "notes");
+        FIUpdateHandler.processUpdateData("999999999.0.0-test", "notes");
 
         String text = FIUpdateHandler.updateInfo.getUnformattedText();
-        assertTrue(text.contains("0.0.0-test"));
+        assertTrue(text.contains("999999999.0.0-test"));
         assertFalse(text.contains("floatingitems.update.display1"));
     }
 
@@ -127,7 +127,7 @@ public class FIUpdateHandlerTest {
 
     @Test
     public void olderVersionBuildsTheWarningAndTheReleaseNotes() {
-        FIUpdateHandler.processUpdateData("0.0.0-test", "release notes");
+        FIUpdateHandler.processUpdateData("999999999.0.0-test", "release notes");
 
         assertTrue(FIUpdateHandler.isOld);
         assertNotNull(FIUpdateHandler.updateInfo);
@@ -136,7 +136,7 @@ public class FIUpdateHandlerTest {
 
     @Test
     public void missingReleaseNotesStillBuildsTheVersionWarning() {
-        FIUpdateHandler.processUpdateData("0.0.0-test", null);
+        FIUpdateHandler.processUpdateData("999999999.0.0-test", null);
 
         assertTrue(FIUpdateHandler.isOld);
         assertNotNull(FIUpdateHandler.updateInfo);

@@ -40,6 +40,7 @@ final class FIConfigParser {
     static final String HORIZONTAL_DAMPING_KEY = "Floating Horizontal Damping";
     static final String MAX_UPWARD_SPEED_KEY = "Floating Maximum Upward Speed";
     static final String SURFACE_OFFSET_KEY = "Floating Surface Offset";
+    static final String DEBUG_COUNTERS_KEY = "Enable Debug Counters";
     static final String SERVER_LANGUAGE_KEY = "Default Server language";
     static final String UPDATE_CHECK_KEY = "Disable FloatingItems Update Check";
     static final String LEGACY_UPDATE_CHECK_KEY = "Disable FloatingItems Update Checker Message";
@@ -192,6 +193,12 @@ final class FIConfigParser {
         double surfaceOffset = prop.getDouble(BuoyancySettings.DEFAULT_SURFACE_OFFSET);
         propertyOrder.add(prop.getName());
 
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, DEBUG_COUNTERS_KEY, false);
+        prop.setLanguageKey("fi.config.debugCounters");
+        prop.comment = "Enable process-wide item evaluation, float and cache counters. Default: false.";
+        boolean debugCounters = prop.getBoolean(false);
+        propertyOrder.add(prop.getName());
+
         prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, SERVER_LANGUAGE_KEY, "en_us");
         prop.setLanguageKey("fi.config.serverLanguage");
         prop.comment = "Server language codes are based off the Minecraft .lang files. See https://minecraft.gamepedia.com/Language for list.";
@@ -224,6 +231,7 @@ final class FIConfigParser {
             new ScopeRules(dimensionMode, dimensions, biomeMode, biomes, modMode, modIds),
             new LiquidRules(liquidPolicy, fluidAllowlist, fluidDenylist),
             new BuoyancySettings(buoyancyLift, horizontalDamping, maxUpwardSpeed, surfaceOffset),
+            debugCounters,
             serverLang,
             updateCheckDisabled,
             propertyOrder);
@@ -238,13 +246,14 @@ final class FIConfigParser {
         private final ScopeRules scopeRules;
         private final LiquidRules liquidRules;
         private final BuoyancySettings buoyancy;
+        private final boolean debugCounters;
         private final String serverLang;
         private final boolean updateCheckDisabled;
         private final List<String> propertyOrder;
 
         ParsedConfig(List<BlacklistEntry> items, Set<Integer> registryItems, List<String> oreDict,
             ItemFilterMode itemFilterMode, ScopeRules scopeRules, LiquidRules liquidRules, BuoyancySettings buoyancy,
-            String serverLang, boolean updateCheckDisabled, List<String> propertyOrder) {
+            boolean debugCounters, String serverLang, boolean updateCheckDisabled, List<String> propertyOrder) {
             this.items = Collections.unmodifiableList(new ArrayList<BlacklistEntry>(items));
             this.registryItems = Collections.unmodifiableSet(new HashSet<Integer>(registryItems));
             this.oreDict = Collections.unmodifiableList(new ArrayList<String>(oreDict));
@@ -252,6 +261,7 @@ final class FIConfigParser {
             this.scopeRules = scopeRules == null ? ScopeRules.defaults() : scopeRules;
             this.liquidRules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
             this.buoyancy = buoyancy == null ? BuoyancySettings.defaults() : buoyancy;
+            this.debugCounters = debugCounters;
             this.serverLang = serverLang;
             this.updateCheckDisabled = updateCheckDisabled;
             this.propertyOrder = Collections.unmodifiableList(new ArrayList<String>(propertyOrder));
@@ -283,6 +293,10 @@ final class FIConfigParser {
 
         BuoyancySettings getBuoyancy() {
             return buoyancy;
+        }
+
+        boolean hasDebugCounters() {
+            return debugCounters;
         }
 
         String getServerLang() {

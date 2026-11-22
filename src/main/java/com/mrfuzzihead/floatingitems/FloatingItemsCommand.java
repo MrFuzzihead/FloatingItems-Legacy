@@ -6,6 +6,8 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.util.ChatComponentText;
 
+import com.mrfuzzihead.floatingitems.api.DebugCounters;
+
 /**
  * Operator command for inspecting and reloading the effective FloatingItems configuration.
  */
@@ -91,5 +93,15 @@ public final class FloatingItemsCommand extends CommandBase {
                     buoyancy.getHorizontalDamping(),
                     buoyancy.getMaxUpwardSpeed(),
                     buoyancy.getSurfaceOffset())));
+        sender.addChatMessage(
+            new ChatComponentText(
+                String.format(
+                    Locale.ROOT,
+                    "Debug counters: %s evaluated=%d floated=%d cacheHits=%d cacheMisses=%d",
+                    DebugCounters.isEnabled() ? "enabled" : "disabled",
+                    DebugCounters.getItemsEvaluated(),
+                    DebugCounters.getItemsFloated(),
+                    DebugCounters.getCacheHits(),
+                    DebugCounters.getCacheMisses())));
     }
 }

@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 import com.mrfuzzihead.floatingitems.FIConfig;
 import com.mrfuzzihead.floatingitems.FloatingItemPolicy;
+import com.mrfuzzihead.floatingitems.api.DebugCounters;
 import com.mrfuzzihead.floatingitems.api.ItemFloatCheckEvent;
 import com.mrfuzzihead.floatingitems.api.ItemFloatTickEvent;
 
@@ -34,6 +35,7 @@ public abstract class EntityItemMixin {
             return true;
         }
 
+        DebugCounters.itemEvaluated();
         ItemStack stack = entityItem.getEntityItem();
         ItemFloatCheckEvent checkEvent = new ItemFloatCheckEvent(
             entityItem,
@@ -50,6 +52,7 @@ public abstract class EntityItemMixin {
             FIConfig.filterMode,
             FIConfig.buoyancy,
             FIConfig.scopeRules)) {
+            DebugCounters.itemFloated();
             FloatingItemPolicy.applyBuoyancy(entityItem, FIConfig.buoyancy);
             MinecraftForge.EVENT_BUS
                 .post(new ItemFloatTickEvent(entityItem, stack, entityItem.worldObj, entityItem.boundingBox));

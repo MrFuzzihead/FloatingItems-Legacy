@@ -105,9 +105,11 @@ public class BlacklistSnapshot<T extends BlacklistEntry> {
 
         Boolean cached = itemCache.get(meta);
         if (cached != null) {
+            DebugCounters.cacheHit();
             return cached;
         }
 
+        DebugCounters.cacheMiss();
         boolean result = computeBlacklisted(item, meta);
         Boolean previous = itemCache.putIfAbsent(meta, result);
         return previous == null ? result : previous;
