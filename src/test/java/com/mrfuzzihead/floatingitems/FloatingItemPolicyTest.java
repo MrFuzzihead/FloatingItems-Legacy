@@ -179,6 +179,38 @@ public class FloatingItemPolicyTest {
     }
 
     @Test
+    public void customBuoyancyUsesDampingLiftAndMaximumSpeed() {
+        Entity entity = mock(Entity.class);
+        entity.motionX = 1.0D;
+        entity.motionY = 0.05D;
+        entity.motionZ = -2.0D;
+
+        FloatingItemPolicy.applyBuoyancy(entity, new BuoyancySettings(0.2D, 0.5D, 0.1D, 0.0D));
+
+        assertEquals(0.5D, entity.motionX, 1.0E-12);
+        assertEquals(0.1D, entity.motionY, 1.0E-9);
+        assertEquals(-1.0D, entity.motionZ, 1.0E-12);
+    }
+
+    @Test
+    public void positiveSurfaceOffsetKeepsDetectingLiquidBelowTheItem() {
+        World world = mock(World.class);
+        Block water = mock(Block.class);
+        when(water.getMaterial()).thenReturn(Material.water);
+        when(world.getBlock(0, 0, 0)).thenReturn(water);
+        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 1.1D, 0.0D, 0.25D, 1.35D, 0.25D);
+
+        assertFalse(
+            FloatingItemPolicy.isInFloatingLiquid(world, box, LiquidRules.defaults(), BuoyancySettings.defaults()));
+        assertTrue(
+            FloatingItemPolicy.isInFloatingLiquid(
+                world,
+                box,
+                LiquidRules.defaults(),
+                new BuoyancySettings(0.04D, 0.95D, 0.4D, 0.2D)));
+    }
+
+    @Test
     public void buoyancyDoesNotApplySlowLiftAtOrAboveThreshold() {
         Entity entity = mock(Entity.class);
         entity.motionY = 0.06D;

@@ -17,8 +17,6 @@ import com.mrfuzzihead.floatingitems.api.BlacklistSnapshot;
  */
 public final class FloatingItemPolicy {
 
-    static final double BUOYANCY_LIFT = 0.03999999910593033D;
-    static final double HORIZONTAL_DAMPING = 0.95D;
     static final double SLOW_LIFT = 5.0E-4D;
     static final double SLOW_LIFT_THRESHOLD = 0.06D;
 
@@ -33,7 +31,14 @@ public final class FloatingItemPolicy {
      */
     public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> blacklist) {
 
-        return shouldFloat(stack, world, box, blacklist, LiquidRules.defaults(), ItemFilterMode.BLACKLIST);
+        return shouldFloat(
+            stack,
+            world,
+            box,
+            blacklist,
+            LiquidRules.defaults(),
+            ItemFilterMode.BLACKLIST,
+            BuoyancySettings.defaults());
     }
 
     /**
@@ -47,7 +52,14 @@ public final class FloatingItemPolicy {
     public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> blacklist,
         LiquidRules liquidRules) {
 
-        return shouldFloat(stack, world, box, blacklist, liquidRules, ItemFilterMode.BLACKLIST);
+        return shouldFloat(
+            stack,
+            world,
+            box,
+            blacklist,
+            liquidRules,
+            ItemFilterMode.BLACKLIST,
+            BuoyancySettings.defaults());
     }
 
     /**
@@ -62,6 +74,22 @@ public final class FloatingItemPolicy {
     public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> itemFilter,
         LiquidRules liquidRules, ItemFilterMode filterMode) {
 
+        return shouldFloat(stack, world, box, itemFilter, liquidRules, filterMode, BuoyancySettings.defaults());
+    }
+
+    /**
+     * @param stack       the post-hook item stack
+     * @param world       the entity world
+     * @param box         the entity bounding box
+     * @param itemFilter  the immutable item filter snapshot, or {@code null}
+     * @param liquidRules the immutable liquid policy, or {@code null} for the safe default
+     * @param filterMode  the item filter mode, or {@code null} for blacklist mode
+     * @param buoyancy    the buoyancy settings, or {@code null} for the safe default
+     * @return true when the item passes the item filter and is touching an allowed liquid
+     */
+    public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> itemFilter,
+        LiquidRules liquidRules, ItemFilterMode filterMode, BuoyancySettings buoyancy) {
+
         if (stack == null || stack.getItem() == null) {
             return false;
         }
@@ -73,7 +101,8 @@ public final class FloatingItemPolicy {
         }
 
         LiquidRules rules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
-        return rules.isInFloatingLiquid(world, box);
+        BuoyancySettings settings = buoyancy == null ? BuoyancySettings.defaults() : buoyancy;
+        return isInFloatingLiquid(world, box, rules, settings);
     }
 
     /**
@@ -96,20 +125,60 @@ public final class FloatingItemPolicy {
      */
     public static boolean isInFloatingLiquid(World world, AxisAlignedBB box, LiquidRules liquidRules) {
 
-        LiquidRules rules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
-        return rules.isInFloatingLiquid(world, box);
+        return isInFloatingLiquid(world, box, liquidRules, BuoyancySettings.defaults());
     }
 
     /**
-     * Applies the historical FloatingItems motion profile.
+     * @param world       the entity world
+     * @param box         the entity bounding box
+     * @param liquidRules the immutable liquid policy, or {@code null} for the safe default
+     * @param buoyancy    the buoyancy settings, or {@code null} for the safe default
+     * @return true when the box overlaps a liquid allowed by the policy, after applying the surface offset
+     */
+    public static boolean isInFloatingLiquid(World world, AxisAlignedBB box, LiquidRules liquidRules,
+        BuoyancySettings buoyancy) {
+
+        LiquidRules rules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
+        BuoyancySettings settings = buoyancy == null ? BuoyancySettings.defaults() : buoyancy;
+        return rules.isInFloatingLiquid(world, applySurfaceOffset(box, settings.getSurfaceOffset()));
+    }
+
+    /**
+     * Applies the default FloatingItems motion profile.
      *
      * @param entity the item entity
      */
     public static void applyBuoyancy(Entity entity) {
 
-        entity.motionX *= HORIZONTAL_DAMPING;
+        applyBuoyancy(entity, BuoyancySettings.defaults());
+    }
+
+    /**
+     * Applies the configured FloatingItems motion profile.
+     *
+     * @param entity   the item entity
+     * @param buoyancy the buoyancy settings, or {@code null} for the safe default
+     */
+    public static void applyBuoyancy(Entity entity, BuoyancySettings buoyancy) {
+
+        BuoyancySettings settings = buoyancy == null ? BuoyancySettings.defaults() : buoyancy;
+        entity.motionX *= settings.getHorizontalDamping();
         entity.motionY += entity.motionY < SLOW_LIFT_THRESHOLD ? SLOW_LIFT : 0.0D;
-        entity.motionZ *= HORIZONTAL_DAMPING;
-        entity.motionY += BUOYANCY_LIFT;
+        entity.motionZ *= settings.getHorizontalDamping();
+        entity.motionY += settings.getLift();
+        if (entity.motionY > settings.getMaxUpwardSpeed()) {
+            entity.motionY = settings.getMaxUpwardSpeed();
+        }
+    }
+
+    private static AxisAlignedBB applySurfaceOffset(AxisAlignedBB box, double surfaceOffset) {
+        if (box == null || surfaceOffset == 0.0D) {
+            return box;
+        }
+        double minY = box.minY - surfaceOffset;
+        if (minY >= box.maxY) {
+            minY = box.maxY - 1.0E-4D;
+        }
+        return AxisAlignedBB.getBoundingBox(box.minX, minY, box.minZ, box.maxX, box.maxY, box.maxZ);
     }
 }

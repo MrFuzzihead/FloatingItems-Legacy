@@ -44,6 +44,10 @@ public class FIConfigTest {
     private static final String LIQUID_POLICY = "Liquid Policy";
     private static final String FLUID_ALLOWLIST = "Floating Fluid Allowlist";
     private static final String FLUID_DENYLIST = "Floating Fluid Denylist";
+    private static final String BUOYANCY_LIFT = "Floating Lift Acceleration";
+    private static final String HORIZONTAL_DAMPING = "Floating Horizontal Damping";
+    private static final String MAX_UPWARD_SPEED = "Floating Maximum Upward Speed";
+    private static final String SURFACE_OFFSET = "Floating Surface Offset";
     private static final String SERVER_LANGUAGE = "Default Server language";
     private static final String DISABLE_UPDATE_CHECK = "Disable FloatingItems Update Check";
 
@@ -60,6 +64,7 @@ public class FIConfigTest {
         FIConfig.blacklist = FIConfig.Blacklist.empty();
         FIConfig.filterMode = ItemFilterMode.BLACKLIST;
         FIConfig.liquidRules = LiquidRules.defaults();
+        FIConfig.buoyancy = BuoyancySettings.defaults();
         FIConfig.serverLang = null;
         FIConfig.disableUpdateCheck = false;
         FIConfig.config = null;
@@ -79,6 +84,10 @@ public class FIConfigTest {
         assertNotNull(FIConfig.blacklist);
         assertEquals(ItemFilterMode.BLACKLIST, FIConfig.filterMode);
         assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
+        assertEquals(BuoyancySettings.DEFAULT_LIFT, FIConfig.buoyancy.getLift(), 1.0E-9D);
+        assertEquals(BuoyancySettings.DEFAULT_HORIZONTAL_DAMPING, FIConfig.buoyancy.getHorizontalDamping(), 1.0E-9D);
+        assertEquals(BuoyancySettings.DEFAULT_MAX_UPWARD_SPEED, FIConfig.buoyancy.getMaxUpwardSpeed(), 1.0E-9D);
+        assertEquals(BuoyancySettings.DEFAULT_SURFACE_OFFSET, FIConfig.buoyancy.getSurfaceOffset(), 1.0E-9D);
         assertTrue(
             FIConfig.liquidRules.getAllowlist()
                 .isEmpty());
@@ -121,7 +130,7 @@ public class FIConfigTest {
         FIConfig.init(configFile());
 
         List<IConfigElement> elements = FIConfig.getConfigElements();
-        assertEquals(9, elements.size());
+        assertEquals(13, elements.size());
 
         List<String> names = new java.util.ArrayList<String>();
         for (IConfigElement element : elements) {
@@ -136,6 +145,10 @@ public class FIConfigTest {
                 LIQUID_POLICY,
                 FLUID_ALLOWLIST,
                 FLUID_DENYLIST,
+                BUOYANCY_LIFT,
+                HORIZONTAL_DAMPING,
+                MAX_UPWARD_SPEED,
+                SURFACE_OFFSET,
                 SERVER_LANGUAGE,
                 DISABLE_UPDATE_CHECK),
             names);
@@ -154,6 +167,7 @@ public class FIConfigTest {
         assertTrue(contents.contains("water_like"));
         assertTrue(contents.contains("denylist wins"));
         assertTrue(contents.contains("whitelist"));
+        assertTrue(contents.contains("Maximum upward speed"));
     }
 
     @Test
@@ -384,6 +398,7 @@ public class FIConfigTest {
             LiquidPolicy.WATER_LIKE,
             Collections.singletonList("salt_water"),
             Collections.singletonList("oil"));
+        FIConfig.buoyancy = new BuoyancySettings(0.2D, 0.5D, 0.3D, 0.1D);
         FIConfig.serverLang = "de_de";
         FIConfig.disableUpdateCheck = true;
         FIConfig.config = mock(Configuration.class);
@@ -409,12 +424,35 @@ public class FIConfigTest {
         assertFalse(FIConfig.disableUpdateCheck);
         assertEquals(ItemFilterMode.BLACKLIST, FIConfig.filterMode);
         assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
+        assertEquals(BuoyancySettings.DEFAULT_LIFT, FIConfig.buoyancy.getLift(), 1.0E-9D);
         assertTrue(
             FIConfig.liquidRules.getAllowlist()
                 .isEmpty());
         assertTrue(
             FIConfig.liquidRules.getDenylist()
                 .isEmpty());
+    }
+
+    @Test
+    public void buoyancySettingsAreLoadedAndClamped() throws Exception {
+        FIConfig.init(configFile());
+        FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, BUOYANCY_LIFT, BuoyancySettings.DEFAULT_LIFT)
+            .set(0.2D);
+        FIConfig.config
+            .get(FIReference.CONFIG_CATEGORY_UTIL, HORIZONTAL_DAMPING, BuoyancySettings.DEFAULT_HORIZONTAL_DAMPING)
+            .set(0.5D);
+        FIConfig.config
+            .get(FIReference.CONFIG_CATEGORY_UTIL, MAX_UPWARD_SPEED, BuoyancySettings.DEFAULT_MAX_UPWARD_SPEED)
+            .set(0.3D);
+        FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, SURFACE_OFFSET, BuoyancySettings.DEFAULT_SURFACE_OFFSET)
+            .set(0.1D);
+
+        FIConfig.syncConfig(false);
+
+        assertEquals(0.2D, FIConfig.buoyancy.getLift(), 1.0E-9D);
+        assertEquals(0.5D, FIConfig.buoyancy.getHorizontalDamping(), 1.0E-9D);
+        assertEquals(0.3D, FIConfig.buoyancy.getMaxUpwardSpeed(), 1.0E-9D);
+        assertEquals(0.1D, FIConfig.buoyancy.getSurfaceOffset(), 1.0E-9D);
     }
 
     @Test

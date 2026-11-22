@@ -26,6 +26,7 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.IFluidBlock;
 import net.minecraftforge.oredict.OreDictionary;
 
+import com.mrfuzzihead.floatingitems.BuoyancySettings;
 import com.mrfuzzihead.floatingitems.FIConfig;
 import com.mrfuzzihead.floatingitems.FIReference;
 import com.mrfuzzihead.floatingitems.ItemFilterMode;
@@ -106,6 +107,7 @@ final class FloatingItemsGameTests {
     private static EntityItem moddedLiquidItem;
     private static EntityItem whitelistItem;
     private static EntityItem unlistedItem;
+    private static EntityItem noBuoyancyItem;
     private static ItemStack nbtStack;
     private static double waterStartY;
     private static double negativeStartY;
@@ -118,6 +120,7 @@ final class FloatingItemsGameTests {
     private static double moddedLiquidStartY;
     private static double whitelistStartY;
     private static double unlistedStartY;
+    private static double noBuoyancyStartY;
     private static ForgeChunkManager.Ticket chunkTicket;
 
     private FloatingItemsGameTests() {}
@@ -451,6 +454,13 @@ final class FloatingItemsGameTests {
                 unlistedStartY = unlistedItem.posY;
                 break;
 
+            case 14:
+                resetItemBlacklistConfig();
+                FIConfig.buoyancy = new BuoyancySettings(0.0D, 0.0D, 0.0D, 0.0D);
+                noBuoyancyItem = spawn(0.5D, WATER_START_Y, 0.5D, new ItemStack(Items.stick), 0.0D);
+                noBuoyancyStartY = noBuoyancyItem.posY;
+                break;
+
             default:
                 finish();
                 break;
@@ -601,6 +611,12 @@ final class FloatingItemsGameTests {
                 check(
                     "an unlisted item does not float in whitelist mode",
                     unlistedItem.isEntityAlive() && unlistedItem.posY <= unlistedStartY + 0.2D);
+                break;
+
+            case 14:
+                check(
+                    "zeroed buoyancy prevents the item from rising",
+                    noBuoyancyItem.isEntityAlive() && noBuoyancyItem.posY <= noBuoyancyStartY + 0.2D);
                 break;
 
             default:

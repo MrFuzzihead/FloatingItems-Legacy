@@ -49,6 +49,26 @@ public class FIConfigParserTest {
             .set(new String[] { "salt_water" });
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.FLUID_DENYLIST_KEY, new String[] {})
             .set(new String[] { "oil" });
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.BUOYANCY_LIFT_KEY, BuoyancySettings.DEFAULT_LIFT)
+            .set(0.2D);
+        config
+            .get(
+                FIReference.CONFIG_CATEGORY_UTIL,
+                FIConfigParser.HORIZONTAL_DAMPING_KEY,
+                BuoyancySettings.DEFAULT_HORIZONTAL_DAMPING)
+            .set(0.5D);
+        config
+            .get(
+                FIReference.CONFIG_CATEGORY_UTIL,
+                FIConfigParser.MAX_UPWARD_SPEED_KEY,
+                BuoyancySettings.DEFAULT_MAX_UPWARD_SPEED)
+            .set(0.3D);
+        config
+            .get(
+                FIReference.CONFIG_CATEGORY_UTIL,
+                FIConfigParser.SURFACE_OFFSET_KEY,
+                BuoyancySettings.DEFAULT_SURFACE_OFFSET)
+            .set(0.1D);
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.SERVER_LANGUAGE_KEY, "en_us")
             .set("de_de");
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.UPDATE_CHECK_KEY, false)
@@ -89,6 +109,26 @@ public class FIConfigParserTest {
             parsed.getLiquidRules()
                 .getDenylist());
         assertEquals(
+            0.2D,
+            parsed.getBuoyancy()
+                .getLift(),
+            1.0E-9D);
+        assertEquals(
+            0.5D,
+            parsed.getBuoyancy()
+                .getHorizontalDamping(),
+            1.0E-9D);
+        assertEquals(
+            0.3D,
+            parsed.getBuoyancy()
+                .getMaxUpwardSpeed(),
+            1.0E-9D);
+        assertEquals(
+            0.1D,
+            parsed.getBuoyancy()
+                .getSurfaceOffset(),
+            1.0E-9D);
+        assertEquals(
             Arrays.asList(
                 FIConfigParser.ITEM_FILTER_MODE_KEY,
                 FIConfigParser.ITEM_BLACKLIST_KEY,
@@ -97,6 +137,10 @@ public class FIConfigParserTest {
                 FIConfigParser.LIQUID_POLICY_KEY,
                 FIConfigParser.FLUID_ALLOWLIST_KEY,
                 FIConfigParser.FLUID_DENYLIST_KEY,
+                FIConfigParser.BUOYANCY_LIFT_KEY,
+                FIConfigParser.HORIZONTAL_DAMPING_KEY,
+                FIConfigParser.MAX_UPWARD_SPEED_KEY,
+                FIConfigParser.SURFACE_OFFSET_KEY,
                 FIConfigParser.SERVER_LANGUAGE_KEY,
                 FIConfigParser.UPDATE_CHECK_KEY),
             parsed.getPropertyOrder());
@@ -130,6 +174,26 @@ public class FIConfigParserTest {
             parsed.getLiquidRules()
                 .getDenylist()
                 .isEmpty());
+        assertEquals(
+            BuoyancySettings.DEFAULT_LIFT,
+            parsed.getBuoyancy()
+                .getLift(),
+            1.0E-9D);
+        assertEquals(
+            BuoyancySettings.DEFAULT_HORIZONTAL_DAMPING,
+            parsed.getBuoyancy()
+                .getHorizontalDamping(),
+            1.0E-9D);
+        assertEquals(
+            BuoyancySettings.DEFAULT_MAX_UPWARD_SPEED,
+            parsed.getBuoyancy()
+                .getMaxUpwardSpeed(),
+            1.0E-9D);
+        assertEquals(
+            BuoyancySettings.DEFAULT_SURFACE_OFFSET,
+            parsed.getBuoyancy()
+                .getSurfaceOffset(),
+            1.0E-9D);
     }
 
     @Test

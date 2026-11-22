@@ -30,6 +30,10 @@ final class FIConfigParser {
     static final String LIQUID_POLICY_KEY = "Liquid Policy";
     static final String FLUID_ALLOWLIST_KEY = "Floating Fluid Allowlist";
     static final String FLUID_DENYLIST_KEY = "Floating Fluid Denylist";
+    static final String BUOYANCY_LIFT_KEY = "Floating Lift Acceleration";
+    static final String HORIZONTAL_DAMPING_KEY = "Floating Horizontal Damping";
+    static final String MAX_UPWARD_SPEED_KEY = "Floating Maximum Upward Speed";
+    static final String SURFACE_OFFSET_KEY = "Floating Surface Offset";
     static final String SERVER_LANGUAGE_KEY = "Default Server language";
     static final String UPDATE_CHECK_KEY = "Disable FloatingItems Update Check";
     static final String LEGACY_UPDATE_CHECK_KEY = "Disable FloatingItems Update Checker Message";
@@ -107,6 +111,29 @@ final class FIConfigParser {
         List<String> fluidDenylist = Arrays.asList(prop.getStringList());
         propertyOrder.add(prop.getName());
 
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, BUOYANCY_LIFT_KEY, BuoyancySettings.DEFAULT_LIFT);
+        prop.comment = "Upward acceleration added while in an allowed liquid. Range 0.0-1.0; default 0.04.";
+        double buoyancyLift = prop.getDouble(BuoyancySettings.DEFAULT_LIFT);
+        propertyOrder.add(prop.getName());
+
+        prop = config
+            .get(FIReference.CONFIG_CATEGORY_UTIL, HORIZONTAL_DAMPING_KEY, BuoyancySettings.DEFAULT_HORIZONTAL_DAMPING);
+        prop.comment = "Horizontal motion multiplier while floating. Range 0.0-1.0; default 0.95.";
+        double horizontalDamping = prop.getDouble(BuoyancySettings.DEFAULT_HORIZONTAL_DAMPING);
+        propertyOrder.add(prop.getName());
+
+        prop = config
+            .get(FIReference.CONFIG_CATEGORY_UTIL, MAX_UPWARD_SPEED_KEY, BuoyancySettings.DEFAULT_MAX_UPWARD_SPEED);
+        prop.comment = "Maximum upward speed while floating. Range 0.0-10.0; default 0.4.";
+        double maxUpwardSpeed = prop.getDouble(BuoyancySettings.DEFAULT_MAX_UPWARD_SPEED);
+        propertyOrder.add(prop.getName());
+
+        prop = config
+            .get(FIReference.CONFIG_CATEGORY_UTIL, SURFACE_OFFSET_KEY, BuoyancySettings.DEFAULT_SURFACE_OFFSET);
+        prop.comment = "Extra height above the liquid surface where buoyancy still applies. Range -0.5-0.5; default 0.0.";
+        double surfaceOffset = prop.getDouble(BuoyancySettings.DEFAULT_SURFACE_OFFSET);
+        propertyOrder.add(prop.getName());
+
         prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, SERVER_LANGUAGE_KEY, "en_us");
         prop.comment = "Server language codes are based off the Minecraft .lang files. See https://minecraft.gamepedia.com/Language for list.";
         String serverLang = prop.getString();
@@ -135,6 +162,7 @@ final class FIConfigParser {
             oreBlacklist,
             itemFilterMode,
             new LiquidRules(liquidPolicy, fluidAllowlist, fluidDenylist),
+            new BuoyancySettings(buoyancyLift, horizontalDamping, maxUpwardSpeed, surfaceOffset),
             serverLang,
             updateCheckDisabled,
             propertyOrder);
@@ -147,18 +175,20 @@ final class FIConfigParser {
         private final List<String> oreDict;
         private final ItemFilterMode itemFilterMode;
         private final LiquidRules liquidRules;
+        private final BuoyancySettings buoyancy;
         private final String serverLang;
         private final boolean updateCheckDisabled;
         private final List<String> propertyOrder;
 
         ParsedConfig(List<BlacklistEntry> items, Set<Integer> registryItems, List<String> oreDict,
-            ItemFilterMode itemFilterMode, LiquidRules liquidRules, String serverLang, boolean updateCheckDisabled,
-            List<String> propertyOrder) {
+            ItemFilterMode itemFilterMode, LiquidRules liquidRules, BuoyancySettings buoyancy, String serverLang,
+            boolean updateCheckDisabled, List<String> propertyOrder) {
             this.items = Collections.unmodifiableList(new ArrayList<BlacklistEntry>(items));
             this.registryItems = Collections.unmodifiableSet(new HashSet<Integer>(registryItems));
             this.oreDict = Collections.unmodifiableList(new ArrayList<String>(oreDict));
             this.itemFilterMode = itemFilterMode == null ? ItemFilterMode.BLACKLIST : itemFilterMode;
             this.liquidRules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
+            this.buoyancy = buoyancy == null ? BuoyancySettings.defaults() : buoyancy;
             this.serverLang = serverLang;
             this.updateCheckDisabled = updateCheckDisabled;
             this.propertyOrder = Collections.unmodifiableList(new ArrayList<String>(propertyOrder));
@@ -182,6 +212,10 @@ final class FIConfigParser {
 
         LiquidRules getLiquidRules() {
             return liquidRules;
+        }
+
+        BuoyancySettings getBuoyancy() {
+            return buoyancy;
         }
 
         String getServerLang() {

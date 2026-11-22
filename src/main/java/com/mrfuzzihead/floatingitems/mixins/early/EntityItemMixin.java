@@ -32,8 +32,9 @@ public abstract class EntityItemMixin {
             entityItem.boundingBox,
             FIConfig.blacklist,
             FIConfig.liquidRules,
-            FIConfig.filterMode)) {
-            FloatingItemPolicy.applyBuoyancy(entityItem);
+            FIConfig.filterMode,
+            FIConfig.buoyancy)) {
+            FloatingItemPolicy.applyBuoyancy(entityItem, FIConfig.buoyancy);
         }
         return handledByItem;
     }

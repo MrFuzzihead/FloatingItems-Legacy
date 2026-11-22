@@ -47,9 +47,9 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 112 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 122 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
-| `./gradlew gameTestServer` | boots a real dedicated server, runs 25 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
+| `./gradlew gameTestServer` | boots a real dedicated server, runs 26 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
 
 The game test is a non-shipped `@Mod` in `src/gameTest/java`; it is only on the classpath for `gameTestServer` (or
@@ -73,6 +73,10 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 | Liquid Policy | `water_like` (default), `water`, or `material_water` |
 | Floating Fluid Allowlist | Forge fluid names that always float, even if the policy would reject them |
 | Floating Fluid Denylist | Forge fluid names that never float; wins over the allowlist |
+| Floating Lift Acceleration | upward acceleration while floating; default `0.04` |
+| Floating Horizontal Damping | horizontal motion multiplier; default `0.95` |
+| Floating Maximum Upward Speed | upward speed cap; default `0.4` |
+| Floating Surface Offset | extra height above the liquid surface where buoyancy still applies; default `0.0` |
 | Default Server language | locale code, e.g. `en_us` |
 | Disable FloatingItems Update Check | boolean - disables both the GitHub request and the message |
 
@@ -82,6 +86,16 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 
 In `whitelist` item-filter mode, the three item/registry/ore lists become the only entries allowed to float. In
 `blacklist` mode they remain exclusions. The list keys keep their historical names so existing configs continue to work.
+
+The buoyancy values are validated and clamped. `Floating Surface Offset` extends the liquid-detection box downward, so
+a positive value lets an item settle slightly above the surface while a negative value keeps it lower.
+
+### Commands
+
+| Command | Permission | Purpose |
+|---|---|---|
+| `/floatingitems status` | operator | Show the effective item filter, liquid policy and buoyancy settings |
+| `/floatingitems reload` | operator | Reload `FloatingItems.conf` and re-resolve item entries against the registry |
 
 See [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) for the full review, the bug catalogue and the improvement plan.
 

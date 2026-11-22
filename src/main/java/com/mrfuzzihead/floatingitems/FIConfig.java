@@ -34,6 +34,9 @@ public class FIConfig {
     /** Immutable fluid policy published alongside the blacklist snapshot. */
     public static volatile LiquidRules liquidRules = LiquidRules.defaults();
 
+    /** Immutable buoyancy tuning published alongside the blacklist snapshot. */
+    public static volatile BuoyancySettings buoyancy = BuoyancySettings.defaults();
+
     public static String serverLang;
 
     public static boolean disableUpdateCheck;
@@ -70,6 +73,7 @@ public class FIConfig {
             blacklist = snapshot;
             filterMode = parsed.getItemFilterMode();
             liquidRules = parsed.getLiquidRules();
+            buoyancy = parsed.getBuoyancy();
             serverLang = parsed.getServerLang();
             disableUpdateCheck = parsed.isUpdateCheckDisabled();
         } catch (final Exception e) {
@@ -84,6 +88,7 @@ public class FIConfig {
         blacklist = FIConfigSnapshot.empty();
         filterMode = ItemFilterMode.BLACKLIST;
         liquidRules = LiquidRules.defaults();
+        buoyancy = BuoyancySettings.defaults();
         serverLang = "en_us";
         disableUpdateCheck = false;
     }
@@ -114,6 +119,14 @@ public class FIConfig {
         }
 
         blacklist = new FIConfigSnapshot(resolved, current.getRegistryItems(), current.getOreDict());
+    }
+
+    /**
+     * Reloads the config from disk and then resolves entries against the current item registry.
+     */
+    public static void reload() {
+        syncConfig(true);
+        resolveItems();
     }
 
     public static List<IConfigElement> getConfigElements() {
