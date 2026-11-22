@@ -75,7 +75,15 @@ public final class FloatingItemPolicy {
     public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> itemFilter,
         LiquidRules liquidRules, ItemFilterMode filterMode) {
 
-        return shouldFloat(stack, world, box, itemFilter, liquidRules, filterMode, BuoyancySettings.defaults());
+        return shouldFloat(
+            stack,
+            world,
+            box,
+            itemFilter,
+            liquidRules,
+            filterMode,
+            BuoyancySettings.defaults(),
+            ScopeRules.defaults());
     }
 
     /**
@@ -91,7 +99,31 @@ public final class FloatingItemPolicy {
     public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> itemFilter,
         LiquidRules liquidRules, ItemFilterMode filterMode, BuoyancySettings buoyancy) {
 
-        if (stack == null || stack.getItem() == null) {
+        return shouldFloat(stack, world, box, itemFilter, liquidRules, filterMode, buoyancy, ScopeRules.defaults());
+    }
+
+    /**
+     * @param stack       the post-hook item stack
+     * @param world       the entity world
+     * @param box         the entity bounding box
+     * @param itemFilter  the immutable item filter snapshot, or {@code null}
+     * @param liquidRules the immutable liquid policy, or {@code null} for the safe default
+     * @param filterMode  the item filter mode, or {@code null} for blacklist mode
+     * @param buoyancy    the buoyancy settings, or {@code null} for the safe default
+     * @param scopeRules  the dimension/biome/mod-ID scopes, or {@code null} for no restriction
+     * @return true when the item passes the world scope, item filter and liquid policy
+     */
+    public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> itemFilter,
+        LiquidRules liquidRules, ItemFilterMode filterMode, BuoyancySettings buoyancy, ScopeRules scopeRules) {
+
+        if (stack == null || stack.getItem() == null || box == null) {
+            return false;
+        }
+
+        ScopeRules scopes = scopeRules == null ? ScopeRules.defaults() : scopeRules;
+        double centerX = (box.minX + box.maxX) / 2.0D;
+        double centerZ = (box.minZ + box.maxZ) / 2.0D;
+        if (!scopes.allows(world, stack, centerX, centerZ)) {
             return false;
         }
 

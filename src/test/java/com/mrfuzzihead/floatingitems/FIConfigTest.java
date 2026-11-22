@@ -41,6 +41,12 @@ public class FIConfigTest {
     private static final String ITEM_BLACKLIST = "Blacklist of Items that should not Float";
     private static final String REGISTRY_BLACKLIST = "Blacklist of All Items regardless of Metadata that should not Float";
     private static final String OREDICT_BLACKLIST = "Blacklist of OreDict Entries that should not Float";
+    private static final String DIMENSION_FILTER_MODE = "Dimension Filter Mode";
+    private static final String FLOATING_DIMENSIONS = "Floating Dimensions";
+    private static final String BIOME_FILTER_MODE = "Biome Filter Mode";
+    private static final String FLOATING_BIOMES = "Floating Biomes";
+    private static final String MOD_FILTER_MODE = "Mod ID Filter Mode";
+    private static final String FLOATING_MOD_IDS = "Floating Mod IDs";
     private static final String LIQUID_POLICY = "Liquid Policy";
     private static final String FLUID_ALLOWLIST = "Floating Fluid Allowlist";
     private static final String FLUID_DENYLIST = "Floating Fluid Denylist";
@@ -63,6 +69,7 @@ public class FIConfigTest {
     public void resetConfigState() {
         FIConfig.blacklist = FIConfig.Blacklist.empty();
         FIConfig.filterMode = ItemFilterMode.BLACKLIST;
+        FIConfig.scopeRules = ScopeRules.defaults();
         FIConfig.liquidRules = LiquidRules.defaults();
         FIConfig.buoyancy = BuoyancySettings.defaults();
         FIConfig.serverLang = null;
@@ -83,6 +90,9 @@ public class FIConfigTest {
         assertTrue(file.exists());
         assertNotNull(FIConfig.blacklist);
         assertEquals(ItemFilterMode.BLACKLIST, FIConfig.filterMode);
+        assertEquals(ScopeMode.ALL, FIConfig.scopeRules.getDimensionMode());
+        assertEquals(ScopeMode.ALL, FIConfig.scopeRules.getBiomeMode());
+        assertEquals(ScopeMode.ALL, FIConfig.scopeRules.getModMode());
         assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
         assertEquals(BuoyancySettings.DEFAULT_LIFT, FIConfig.buoyancy.getLift(), 1.0E-9D);
         assertEquals(BuoyancySettings.DEFAULT_HORIZONTAL_DAMPING, FIConfig.buoyancy.getHorizontalDamping(), 1.0E-9D);
@@ -130,7 +140,7 @@ public class FIConfigTest {
         FIConfig.init(configFile());
 
         List<IConfigElement> elements = FIConfig.getConfigElements();
-        assertEquals(13, elements.size());
+        assertEquals(19, elements.size());
 
         List<String> names = new java.util.ArrayList<String>();
         for (IConfigElement element : elements) {
@@ -150,6 +160,12 @@ public class FIConfigTest {
                 ITEM_BLACKLIST,
                 REGISTRY_BLACKLIST,
                 OREDICT_BLACKLIST,
+                DIMENSION_FILTER_MODE,
+                FLOATING_DIMENSIONS,
+                BIOME_FILTER_MODE,
+                FLOATING_BIOMES,
+                MOD_FILTER_MODE,
+                FLOATING_MOD_IDS,
                 LIQUID_POLICY,
                 FLUID_ALLOWLIST,
                 FLUID_DENYLIST,
@@ -176,6 +192,8 @@ public class FIConfigTest {
         assertTrue(contents.contains("denylist wins"));
         assertTrue(contents.contains("whitelist"));
         assertTrue(contents.contains("Maximum upward speed"));
+        assertTrue(contents.contains("Dimension scope"));
+        assertTrue(contents.contains("Mod-ID scope"));
     }
 
     @Test
@@ -407,6 +425,13 @@ public class FIConfigTest {
             Collections.singletonList("salt_water"),
             Collections.singletonList("oil"));
         FIConfig.buoyancy = new BuoyancySettings(0.2D, 0.5D, 0.3D, 0.1D);
+        FIConfig.scopeRules = new ScopeRules(
+            ScopeMode.WHITELIST,
+            Collections.singletonList(0),
+            ScopeMode.BLACKLIST,
+            Collections.singletonList("Ocean"),
+            ScopeMode.WHITELIST,
+            Collections.singletonList("minecraft"));
         FIConfig.serverLang = "de_de";
         FIConfig.disableUpdateCheck = true;
         FIConfig.config = mock(Configuration.class);
@@ -432,6 +457,7 @@ public class FIConfigTest {
         assertFalse(FIConfig.disableUpdateCheck);
         assertEquals(ItemFilterMode.BLACKLIST, FIConfig.filterMode);
         assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
+        assertEquals(ScopeMode.ALL, FIConfig.scopeRules.getDimensionMode());
         assertEquals(BuoyancySettings.DEFAULT_LIFT, FIConfig.buoyancy.getLift(), 1.0E-9D);
         assertTrue(
             FIConfig.liquidRules.getAllowlist()
@@ -461,6 +487,32 @@ public class FIConfigTest {
         assertEquals(0.5D, FIConfig.buoyancy.getHorizontalDamping(), 1.0E-9D);
         assertEquals(0.3D, FIConfig.buoyancy.getMaxUpwardSpeed(), 1.0E-9D);
         assertEquals(0.1D, FIConfig.buoyancy.getSurfaceOffset(), 1.0E-9D);
+    }
+
+    @Test
+    public void scopeRulesAreLoaded() throws Exception {
+        FIConfig.init(configFile());
+        FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, DIMENSION_FILTER_MODE, "all")
+            .set("whitelist");
+        FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, FLOATING_DIMENSIONS, new int[] {})
+            .set(new int[] { 0, -1 });
+        FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, BIOME_FILTER_MODE, "all")
+            .set("blacklist");
+        FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, FLOATING_BIOMES, new String[] {})
+            .set(new String[] { "Plains", "Ocean" });
+        FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, MOD_FILTER_MODE, "all")
+            .set("whitelist");
+        FIConfig.config.get(FIReference.CONFIG_CATEGORY_UTIL, FLOATING_MOD_IDS, new String[] {})
+            .set(new String[] { "minecraft" });
+
+        FIConfig.syncConfig(false);
+
+        assertEquals(ScopeMode.WHITELIST, FIConfig.scopeRules.getDimensionMode());
+        assertEquals(ScopeMode.BLACKLIST, FIConfig.scopeRules.getBiomeMode());
+        assertEquals(ScopeMode.WHITELIST, FIConfig.scopeRules.getModMode());
+        assertTrue(FIConfig.scopeRules.allows(0, "Desert", "minecraft"));
+        assertFalse(FIConfig.scopeRules.allows(1, "Desert", "minecraft"));
+        assertFalse(FIConfig.scopeRules.allows(0, "Plains", "minecraft"));
     }
 
     @Test

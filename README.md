@@ -47,15 +47,15 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 126 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 132 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
-| `./gradlew gameTestServer` | boots a real dedicated server, runs 28 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
+| `./gradlew gameTestServer` | boots a real dedicated server, runs 30 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
 
 The game test is a non-shipped `@Mod` in `src/gameTest/java`; it is only on the classpath for `gameTestServer` (or
 `-PgameTest`) and never reaches the published jar. It covers what cannot be tested headlessly: a real Forge server,
-real `EntityItem` physics, negative coordinates, the item filter rules, source vs downward-flowing water, partial
-submersion, chunk borders, item NBT, merge/despawn, config reload, and the event-bus wiring.
+real `EntityItem` physics, negative coordinates, the item filter rules, source vs flowing water, partial submersion,
+chunk borders, item NBT, merge/despawn, config reload, dimension scopes, and the event-bus wiring.
 
 The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites currently have no skipped or xfail tests. Remaining feature work is tracked in
 [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md).
@@ -70,6 +70,9 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 | Blacklist of Items that should not Float | `{itemId}(metadata)` or `namespace:name[:metadata|:*]` (`*` = any metadata) |
 | Blacklist of All Items regardless of Metadata | item ID |
 | Blacklist of OreDict Entries that should not Float | ore-dictionary name — all metadata of the entry |
+| Dimension Filter Mode / Floating Dimensions | `all`, `whitelist`, `blacklist`; dimension IDs |
+| Biome Filter Mode / Floating Biomes | `all`, `whitelist`, `blacklist`; biome names |
+| Mod ID Filter Mode / Floating Mod IDs | `all`, `whitelist`, `blacklist`; item registry namespaces |
 | Liquid Policy | `water_like` (default), `water`, or `material_water` |
 | Floating Fluid Allowlist | Forge fluid names that always float, even if the policy would reject them |
 | Floating Fluid Denylist | Forge fluid names that never float; wins over the allowlist |

@@ -43,6 +43,18 @@ public class FIConfigParserTest {
             .set(new int[] { 280, 4 });
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.OREDICT_BLACKLIST_KEY, new String[] {})
             .set(new String[] { "ingotCopper", "dustTinyGold" });
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.DIMENSION_FILTER_MODE_KEY, "all")
+            .set("whitelist");
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.FLOATING_DIMENSIONS_KEY, new int[] {})
+            .set(new int[] { 0, -1 });
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.BIOME_FILTER_MODE_KEY, "all")
+            .set("blacklist");
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.FLOATING_BIOMES_KEY, new String[] {})
+            .set(new String[] { "Plains", "Ocean" });
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.MOD_FILTER_MODE_KEY, "all")
+            .set("whitelist");
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.FLOATING_MOD_IDS_KEY, new String[] {})
+            .set(new String[] { "minecraft", "thermalexpansion" });
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.LIQUID_POLICY_KEY, "water")
             .set("water_like");
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.FLUID_ALLOWLIST_KEY, new String[] {})
@@ -92,6 +104,18 @@ public class FIConfigParserTest {
                 .get(1)
                 .getMeta());
         assertEquals(ItemFilterMode.WHITELIST, parsed.getItemFilterMode());
+        assertTrue(
+            parsed.getScopeRules()
+                .allows(0, "Desert", "minecraft"));
+        assertFalse(
+            parsed.getScopeRules()
+                .allows(2, "Desert", "minecraft"));
+        assertFalse(
+            parsed.getScopeRules()
+                .allows(0, "Plains", "minecraft"));
+        assertTrue(
+            parsed.getScopeRules()
+                .allows(0, "Desert", "minecraft"));
         assertEquals("de_de", parsed.getServerLang());
         assertTrue(parsed.isUpdateCheckDisabled());
         assertEquals(new java.util.HashSet<Integer>(Arrays.asList(280, 4)), parsed.getRegistryItems());
@@ -134,6 +158,12 @@ public class FIConfigParserTest {
                 FIConfigParser.ITEM_BLACKLIST_KEY,
                 FIConfigParser.REGISTRY_BLACKLIST_KEY,
                 FIConfigParser.OREDICT_BLACKLIST_KEY,
+                FIConfigParser.DIMENSION_FILTER_MODE_KEY,
+                FIConfigParser.FLOATING_DIMENSIONS_KEY,
+                FIConfigParser.BIOME_FILTER_MODE_KEY,
+                FIConfigParser.FLOATING_BIOMES_KEY,
+                FIConfigParser.MOD_FILTER_MODE_KEY,
+                FIConfigParser.FLOATING_MOD_IDS_KEY,
                 FIConfigParser.LIQUID_POLICY_KEY,
                 FIConfigParser.FLUID_ALLOWLIST_KEY,
                 FIConfigParser.FLUID_DENYLIST_KEY,
@@ -160,6 +190,9 @@ public class FIConfigParserTest {
             parsed.getOreDict()
                 .isEmpty());
         assertEquals(ItemFilterMode.BLACKLIST, parsed.getItemFilterMode());
+        assertTrue(
+            parsed.getScopeRules()
+                .allows(0, "Plains", "minecraft"));
         assertEquals("en_us", parsed.getServerLang());
         assertFalse(parsed.isUpdateCheckDisabled());
         assertEquals(
@@ -206,6 +239,21 @@ public class FIConfigParserTest {
         FIConfigParser.ParsedConfig parsed = FIConfigParser.parse(config, true);
 
         assertEquals(ItemFilterMode.BLACKLIST, parsed.getItemFilterMode());
+    }
+
+    @Test
+    public void invalidScopeModeFallsBackToAll() throws Exception {
+        Configuration config = configuration();
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.DIMENSION_FILTER_MODE_KEY, "all")
+            .set("not_a_mode");
+        config.save();
+
+        FIConfigParser.ParsedConfig parsed = FIConfigParser.parse(config, true);
+
+        assertEquals(
+            ScopeMode.ALL,
+            parsed.getScopeRules()
+                .getDimensionMode());
     }
 
     @Test

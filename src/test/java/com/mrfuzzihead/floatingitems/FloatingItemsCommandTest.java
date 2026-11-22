@@ -41,6 +41,7 @@ public class FloatingItemsCommandTest {
         FIConfig.filterMode = ItemFilterMode.BLACKLIST;
         FIConfig.liquidRules = LiquidRules.defaults();
         FIConfig.buoyancy = BuoyancySettings.defaults();
+        FIConfig.scopeRules = ScopeRules.defaults();
         FIConfig.config = null;
     }
 
@@ -56,30 +57,37 @@ public class FloatingItemsCommandTest {
             Collections.singletonList("salt_water"),
             Collections.singletonList("oil"));
         FIConfig.buoyancy = new BuoyancySettings(0.2D, 0.5D, 0.3D, 0.1D);
+        FIConfig.scopeRules = new ScopeRules(
+            ScopeMode.WHITELIST,
+            Collections.singletonList(0),
+            ScopeMode.BLACKLIST,
+            Collections.singletonList("Ocean"),
+            ScopeMode.WHITELIST,
+            Collections.singletonList("minecraft"));
         ICommandSender sender = mock(ICommandSender.class);
 
         command.processCommand(sender, new String[] { "status" });
 
         ArgumentCaptor<IChatComponent> messages = ArgumentCaptor.forClass(IChatComponent.class);
-        verify(sender, times(3)).addChatMessage(messages.capture());
-        String output = new StringBuilder().append(
-            messages.getAllValues()
-                .get(0)
-                .getUnformattedText())
-            .append('\n')
-            .append(
-                messages.getAllValues()
-                    .get(1)
-                    .getUnformattedText())
-            .append('\n')
-            .append(
-                messages.getAllValues()
-                    .get(2)
-                    .getUnformattedText())
-            .toString();
+        verify(sender, times(4)).addChatMessage(messages.capture());
+        String output = messages.getAllValues()
+            .get(0)
+            .getUnformattedText() + "\n"
+            + messages.getAllValues()
+                .get(1)
+                .getUnformattedText()
+            + "\n"
+            + messages.getAllValues()
+                .get(2)
+                .getUnformattedText()
+            + "\n"
+            + messages.getAllValues()
+                .get(3)
+                .getUnformattedText();
 
         assertTrue(output.contains("whitelist filter (1 item, 1 registry, 1 ore entries)"));
         assertTrue(output.contains("Liquid: water_like (allow=[salt_water], deny=[oil])"));
+        assertTrue(output.contains("Scope: dimension=whitelist[0] biome=blacklist[ocean] mod=whitelist[minecraft]"));
         assertTrue(output.contains("Buoyancy: lift=0.2000 damping=0.500 maxSpeed=0.300 surfaceOffset=0.100"));
     }
 

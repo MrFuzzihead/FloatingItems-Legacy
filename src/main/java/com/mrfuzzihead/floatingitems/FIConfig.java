@@ -31,6 +31,9 @@ public class FIConfig {
     /** Whether {@link #blacklist} is an exclusion list or an allow-only list. */
     public static volatile ItemFilterMode filterMode = ItemFilterMode.BLACKLIST;
 
+    /** Immutable dimension/biome/mod-ID scope published alongside the blacklist snapshot. */
+    public static volatile ScopeRules scopeRules = ScopeRules.defaults();
+
     /** Immutable fluid policy published alongside the blacklist snapshot. */
     public static volatile LiquidRules liquidRules = LiquidRules.defaults();
 
@@ -72,6 +75,7 @@ public class FIConfig {
 
             blacklist = snapshot;
             filterMode = parsed.getItemFilterMode();
+            scopeRules = parsed.getScopeRules();
             liquidRules = parsed.getLiquidRules();
             buoyancy = parsed.getBuoyancy();
             serverLang = parsed.getServerLang();
@@ -87,6 +91,7 @@ public class FIConfig {
     private static void resetToDefaults() {
         blacklist = FIConfigSnapshot.empty();
         filterMode = ItemFilterMode.BLACKLIST;
+        scopeRules = ScopeRules.defaults();
         liquidRules = LiquidRules.defaults();
         buoyancy = BuoyancySettings.defaults();
         serverLang = "en_us";

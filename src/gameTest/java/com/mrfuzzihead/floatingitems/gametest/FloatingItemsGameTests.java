@@ -31,6 +31,8 @@ import com.mrfuzzihead.floatingitems.BuoyancySettings;
 import com.mrfuzzihead.floatingitems.FIConfig;
 import com.mrfuzzihead.floatingitems.FIReference;
 import com.mrfuzzihead.floatingitems.ItemFilterMode;
+import com.mrfuzzihead.floatingitems.ScopeMode;
+import com.mrfuzzihead.floatingitems.ScopeRules;
 import com.mrfuzzihead.floatingitems.api.ItemFloatCheckEvent;
 import com.mrfuzzihead.floatingitems.api.ItemFloatTickEvent;
 
@@ -70,6 +72,8 @@ public final class FloatingItemsGameTests {
     private static final int SHALLOW_X = -16;
     private static final int CHUNK_BORDER_X = 15;
     private static final int CHUNK_BORDER_Z = 15;
+    private static final int FLOW_CHANNEL_X = -3;
+    private static final int FLOW_CHANNEL_Z = 8;
     private static final int MODDED_LIQUID_X = 0;
     private static final int MODDED_LIQUID_Z = 24;
 
@@ -129,6 +133,8 @@ public final class FloatingItemsGameTests {
     private static EntityItem whitelistItem;
     private static EntityItem unlistedItem;
     private static EntityItem noBuoyancyItem;
+    private static EntityItem flowingChannelItem;
+    private static EntityItem scopeItem;
     private static ItemStack nbtStack;
     private static double waterStartY;
     private static double negativeStartY;
@@ -142,6 +148,8 @@ public final class FloatingItemsGameTests {
     private static double whitelistStartY;
     private static double unlistedStartY;
     private static double noBuoyancyStartY;
+    private static double flowingChannelStartX;
+    private static double scopeStartY;
     private static ForgeChunkManager.Ticket chunkTicket;
 
     private FloatingItemsGameTests() {}
@@ -240,6 +248,8 @@ public final class FloatingItemsGameTests {
         buildShallowPool(SHALLOW_X, 0);
         // A non-water liquid-like block for the modded-liquid policy check.
         buildModdedLiquidPool(MODDED_LIQUID_X, MODDED_LIQUID_Z);
+        // A horizontal water channel for the current test.
+        buildFlowChannel(FLOW_CHANNEL_X, FLOW_CHANNEL_Z);
 
         // Clear the two air columns (the arena is above the flat-world ground, so nothing else lives there).
         for (int x = AIR_X - 1; x <= AIR_X + 1; x++) {
@@ -315,6 +325,18 @@ public final class FloatingItemsGameTests {
                 }
             }
         }
+    }
+
+    private static void buildFlowChannel(int sourceX, int centerZ) {
+        for (int x = sourceX - 1; x <= sourceX + 4; x++) {
+            for (int z = centerZ - 1; z <= centerZ + 1; z++) {
+                world.setBlock(x, FLOOR_Y, z, Blocks.stone);
+                boolean wall = z != centerZ || x == sourceX - 1 || x == sourceX + 4;
+                world.setBlock(x, FLOOR_Y + 1, z, wall ? Blocks.stone : Blocks.air);
+                world.setBlockToAir(x, FLOOR_Y + 2, z);
+            }
+        }
+        world.setBlock(sourceX, FLOOR_Y + 1, centerZ, Blocks.water);
     }
 
     private static void clearItems() {
@@ -485,6 +507,30 @@ public final class FloatingItemsGameTests {
                 noBuoyancyStartY = noBuoyancyItem.posY;
                 break;
 
+            case 15:
+                resetItemBlacklistConfig();
+                flowingChannelItem = spawn(
+                    FLOW_CHANNEL_X + 1.5D,
+                    FLOOR_Y + 1.0D,
+                    FLOW_CHANNEL_Z + 0.5D,
+                    new ItemStack(Items.stick),
+                    0.0D);
+                flowingChannelStartX = flowingChannelItem.posX;
+                break;
+
+            case 16:
+                resetItemBlacklistConfig();
+                FIConfig.scopeRules = new ScopeRules(
+                    ScopeMode.WHITELIST,
+                    Collections.singletonList(1),
+                    ScopeMode.ALL,
+                    Collections.<String>emptyList(),
+                    ScopeMode.ALL,
+                    Collections.<String>emptyList());
+                scopeItem = spawn(0.5D, WATER_START_Y, 0.5D, new ItemStack(Items.stick), 0.0D);
+                scopeStartY = scopeItem.posY;
+                break;
+
             default:
                 finish();
                 break;
@@ -643,6 +689,20 @@ public final class FloatingItemsGameTests {
                 check(
                     "zeroed buoyancy prevents the item from rising",
                     noBuoyancyItem.isEntityAlive() && noBuoyancyItem.posY <= noBuoyancyStartY + 0.2D);
+                break;
+
+            case 15:
+                check(
+                    "flowing water moves a floating item horizontally",
+                    flowingChannelItem.isEntityAlive()
+                        && Math.abs(flowingChannelItem.posX - flowingChannelStartX) > 0.2D
+                        && Math.abs(flowingChannelItem.posZ - (FLOW_CHANNEL_Z + 0.5D)) < 0.2D);
+                break;
+
+            case 16:
+                check(
+                    "a dimension-whitelist mismatch suppresses floating",
+                    scopeItem.isEntityAlive() && scopeItem.posY <= scopeStartY + 0.2D);
                 break;
 
             default:

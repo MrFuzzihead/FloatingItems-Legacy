@@ -45,6 +45,7 @@ public final class FloatingItemsCommand extends CommandBase {
         FIConfigSnapshot filter = FIConfig.blacklist;
         LiquidRules liquids = FIConfig.liquidRules;
         BuoyancySettings buoyancy = FIConfig.buoyancy;
+        ScopeRules scopes = FIConfig.scopeRules;
 
         sender.addChatMessage(
             new ChatComponentText(
@@ -67,6 +68,20 @@ public final class FloatingItemsCommand extends CommandBase {
                         .getId(),
                     liquids.getAllowlist(),
                     liquids.getDenylist())));
+        sender.addChatMessage(
+            new ChatComponentText(
+                String.format(
+                    Locale.ROOT,
+                    "Scope: dimension=%s%s biome=%s%s mod=%s%s",
+                    scopes.getDimensionMode()
+                        .getId(),
+                    scopes.getDimensions(),
+                    scopes.getBiomeMode()
+                        .getId(),
+                    scopes.getBiomes(),
+                    scopes.getModMode()
+                        .getId(),
+                    scopes.getModIds())));
         sender.addChatMessage(
             new ChatComponentText(
                 String.format(

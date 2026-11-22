@@ -48,7 +48,8 @@ public abstract class EntityItemMixin {
             FIConfig.blacklist,
             FIConfig.liquidRules,
             FIConfig.filterMode,
-            FIConfig.buoyancy)) {
+            FIConfig.buoyancy,
+            FIConfig.scopeRules)) {
             FloatingItemPolicy.applyBuoyancy(entityItem, FIConfig.buoyancy);
             MinecraftForge.EVENT_BUS
                 .post(new ItemFloatTickEvent(entityItem, stack, entityItem.worldObj, entityItem.boundingBox));

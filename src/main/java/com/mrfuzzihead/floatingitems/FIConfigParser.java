@@ -27,6 +27,12 @@ final class FIConfigParser {
     static final String ITEM_BLACKLIST_KEY = "Blacklist of Items that should not Float";
     static final String REGISTRY_BLACKLIST_KEY = "Blacklist of All Items regardless of Metadata that should not Float";
     static final String OREDICT_BLACKLIST_KEY = "Blacklist of OreDict Entries that should not Float";
+    static final String DIMENSION_FILTER_MODE_KEY = "Dimension Filter Mode";
+    static final String FLOATING_DIMENSIONS_KEY = "Floating Dimensions";
+    static final String BIOME_FILTER_MODE_KEY = "Biome Filter Mode";
+    static final String FLOATING_BIOMES_KEY = "Floating Biomes";
+    static final String MOD_FILTER_MODE_KEY = "Mod ID Filter Mode";
+    static final String FLOATING_MOD_IDS_KEY = "Floating Mod IDs";
     static final String LIQUID_POLICY_KEY = "Liquid Policy";
     static final String FLUID_ALLOWLIST_KEY = "Floating Fluid Allowlist";
     static final String FLUID_DENYLIST_KEY = "Floating Fluid Denylist";
@@ -100,6 +106,45 @@ final class FIConfigParser {
             + (itemFilterMode == ItemFilterMode.WHITELIST ? "In whitelist mode these are allowed by ore name."
                 : "In blacklist mode these are blocked by ore name.");
         List<String> oreBlacklist = Arrays.asList(prop.getStringList());
+        propertyOrder.add(prop.getName());
+
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, DIMENSION_FILTER_MODE_KEY, ScopeMode.ALL.getId());
+        prop.setLanguageKey("fi.config.dimensionFilterMode");
+        prop.comment = "Dimension scope: all, whitelist or blacklist. Example: whitelist with dimensions 0, -1.";
+        ScopeMode dimensionMode = ScopeMode.parse(prop.getString());
+        propertyOrder.add(prop.getName());
+
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, FLOATING_DIMENSIONS_KEY, new int[] {});
+        prop.setLanguageKey("fi.config.floatingDimensions");
+        prop.comment = "Dimension IDs used by the dimension scope. Example: 0, -1, 1.";
+        Set<Integer> dimensions = new HashSet<Integer>();
+        for (int id : prop.getIntList()) {
+            dimensions.add(id);
+        }
+        propertyOrder.add(prop.getName());
+
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, BIOME_FILTER_MODE_KEY, ScopeMode.ALL.getId());
+        prop.setLanguageKey("fi.config.biomeFilterMode");
+        prop.comment = "Biome scope: all, whitelist or blacklist. Uses biome names such as Plains or Ocean.";
+        ScopeMode biomeMode = ScopeMode.parse(prop.getString());
+        propertyOrder.add(prop.getName());
+
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, FLOATING_BIOMES_KEY, new String[] {});
+        prop.setLanguageKey("fi.config.floatingBiomes");
+        prop.comment = "Biome names used by the biome scope. Example: Plains, Ocean.";
+        List<String> biomes = Arrays.asList(prop.getStringList());
+        propertyOrder.add(prop.getName());
+
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, MOD_FILTER_MODE_KEY, ScopeMode.ALL.getId());
+        prop.setLanguageKey("fi.config.modFilterMode");
+        prop.comment = "Mod-ID scope: all, whitelist or blacklist. Uses the item registry namespace.";
+        ScopeMode modMode = ScopeMode.parse(prop.getString());
+        propertyOrder.add(prop.getName());
+
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, FLOATING_MOD_IDS_KEY, new String[] {});
+        prop.setLanguageKey("fi.config.floatingModIds");
+        prop.comment = "Mod IDs used by the mod-ID scope. Example: minecraft, thermalexpansion.";
+        List<String> modIds = Arrays.asList(prop.getStringList());
         propertyOrder.add(prop.getName());
 
         prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, LIQUID_POLICY_KEY, LiquidPolicy.WATER_LIKE.getId());
@@ -176,6 +221,7 @@ final class FIConfigParser {
             registryBlacklist,
             oreBlacklist,
             itemFilterMode,
+            new ScopeRules(dimensionMode, dimensions, biomeMode, biomes, modMode, modIds),
             new LiquidRules(liquidPolicy, fluidAllowlist, fluidDenylist),
             new BuoyancySettings(buoyancyLift, horizontalDamping, maxUpwardSpeed, surfaceOffset),
             serverLang,
@@ -189,6 +235,7 @@ final class FIConfigParser {
         private final Set<Integer> registryItems;
         private final List<String> oreDict;
         private final ItemFilterMode itemFilterMode;
+        private final ScopeRules scopeRules;
         private final LiquidRules liquidRules;
         private final BuoyancySettings buoyancy;
         private final String serverLang;
@@ -196,12 +243,13 @@ final class FIConfigParser {
         private final List<String> propertyOrder;
 
         ParsedConfig(List<BlacklistEntry> items, Set<Integer> registryItems, List<String> oreDict,
-            ItemFilterMode itemFilterMode, LiquidRules liquidRules, BuoyancySettings buoyancy, String serverLang,
-            boolean updateCheckDisabled, List<String> propertyOrder) {
+            ItemFilterMode itemFilterMode, ScopeRules scopeRules, LiquidRules liquidRules, BuoyancySettings buoyancy,
+            String serverLang, boolean updateCheckDisabled, List<String> propertyOrder) {
             this.items = Collections.unmodifiableList(new ArrayList<BlacklistEntry>(items));
             this.registryItems = Collections.unmodifiableSet(new HashSet<Integer>(registryItems));
             this.oreDict = Collections.unmodifiableList(new ArrayList<String>(oreDict));
             this.itemFilterMode = itemFilterMode == null ? ItemFilterMode.BLACKLIST : itemFilterMode;
+            this.scopeRules = scopeRules == null ? ScopeRules.defaults() : scopeRules;
             this.liquidRules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
             this.buoyancy = buoyancy == null ? BuoyancySettings.defaults() : buoyancy;
             this.serverLang = serverLang;
@@ -223,6 +271,10 @@ final class FIConfigParser {
 
         ItemFilterMode getItemFilterMode() {
             return itemFilterMode;
+        }
+
+        ScopeRules getScopeRules() {
+            return scopeRules;
         }
 
         LiquidRules getLiquidRules() {
