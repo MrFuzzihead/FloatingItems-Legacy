@@ -16,7 +16,7 @@
     "logoFile": "logo.png",
     "screenshots": [],
     "parent": "",
-    "requiredMods": [],
+    "requiredMods": ["unimixins"],
     "dependencies": [],
     "dependants": [],
     "useDependencyInformation": true
