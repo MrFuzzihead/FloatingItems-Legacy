@@ -30,6 +30,7 @@ public class FloatingItemsAPITest {
     @After
     public void reset() {
         FIConfig.blacklist = FIConfig.Blacklist.empty();
+        FIConfig.filterMode = ItemFilterMode.BLACKLIST;
     }
 
     @Test
@@ -43,6 +44,15 @@ public class FloatingItemsAPITest {
         assertSame(snapshot, FloatingItemsAPI.getBlacklist());
         assertTrue(FloatingItemsAPI.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 0)));
         assertFalse(FloatingItemsAPI.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 1)));
+    }
+
+    @Test
+    public void exposesTheItemFilterMode() {
+        assertFalse(FloatingItemsAPI.isWhitelistMode());
+
+        FIConfig.filterMode = ItemFilterMode.WHITELIST;
+
+        assertTrue(FloatingItemsAPI.isWhitelistMode());
     }
 
     @Test

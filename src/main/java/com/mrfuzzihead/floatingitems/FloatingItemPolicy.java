@@ -33,26 +33,45 @@ public final class FloatingItemPolicy {
      */
     public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> blacklist) {
 
-        return shouldFloat(stack, world, box, blacklist, LiquidRules.defaults());
+        return shouldFloat(stack, world, box, blacklist, LiquidRules.defaults(), ItemFilterMode.BLACKLIST);
     }
 
     /**
      * @param stack       the post-hook item stack
      * @param world       the entity world
      * @param box         the entity bounding box
-     * @param blacklist   the immutable blacklist snapshot, or {@code null}
+     * @param blacklist   the immutable item filter snapshot, or {@code null}
      * @param liquidRules the immutable liquid policy, or {@code null} for the safe default
-     * @return true when the item is not blacklisted and is touching an allowed liquid
+     * @return true when the item passes the blacklist filter and is touching an allowed liquid
      */
     public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> blacklist,
         LiquidRules liquidRules) {
 
+        return shouldFloat(stack, world, box, blacklist, liquidRules, ItemFilterMode.BLACKLIST);
+    }
+
+    /**
+     * @param stack       the post-hook item stack
+     * @param world       the entity world
+     * @param box         the entity bounding box
+     * @param itemFilter  the immutable item filter snapshot, or {@code null}
+     * @param liquidRules the immutable liquid policy, or {@code null} for the safe default
+     * @param filterMode  the item filter mode, or {@code null} for blacklist mode
+     * @return true when the item passes the item filter and is touching an allowed liquid
+     */
+    public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> itemFilter,
+        LiquidRules liquidRules, ItemFilterMode filterMode) {
+
         if (stack == null || stack.getItem() == null) {
             return false;
         }
-        if (blacklist != null && blacklist.isBlacklisted(stack)) {
+
+        ItemFilterMode mode = filterMode == null ? ItemFilterMode.BLACKLIST : filterMode;
+        boolean listed = itemFilter != null && itemFilter.isBlacklisted(stack);
+        if (mode == ItemFilterMode.WHITELIST ? !listed : listed) {
             return false;
         }
+
         LiquidRules rules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
         return rules.isInFloatingLiquid(world, box);
     }

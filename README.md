@@ -47,14 +47,14 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 106 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 112 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
-| `./gradlew gameTestServer` | boots a real dedicated server, runs 23 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
+| `./gradlew gameTestServer` | boots a real dedicated server, runs 25 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
 
 The game test is a non-shipped `@Mod` in `src/gameTest/java`; it is only on the classpath for `gameTestServer` (or
 `-PgameTest`) and never reaches the published jar. It covers what cannot be tested headlessly: a real Forge server,
-real `EntityItem` physics, negative coordinates, the blacklist rules, source vs downward-flowing water, partial
+real `EntityItem` physics, negative coordinates, the item filter rules, source vs downward-flowing water, partial
 submersion, chunk borders, item NBT, merge/despawn, config reload, and the event-bus wiring.
 
 The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites currently have no skipped or xfail tests. Remaining feature work is tracked in
@@ -66,6 +66,7 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 
 | Option | Format |
 |---|---|
+| Item Filter Mode | `blacklist` (default) or `whitelist`; in whitelist mode the item/registry/ore lists are the only allowed entries |
 | Blacklist of Items that should not Float | `{itemId}(metadata)` or `namespace:name[:metadata|:*]` (`*` = any metadata) |
 | Blacklist of All Items regardless of Metadata | item ID |
 | Blacklist of OreDict Entries that should not Float | ore-dictionary name — all metadata of the entry |
@@ -78,6 +79,9 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 `water_like` is the default: vanilla water plus water-named Forge fluids whose density is 800–1200, temperature is
 250–400 and viscosity is 500–1500. Oil-like and hot fluids are rejected. Use `water` for vanilla water only, `material_water` for the legacy
 `Material.water` behaviour, or the allowlist for a specific modded fluid. The denylist always wins.
+
+In `whitelist` item-filter mode, the three item/registry/ore lists become the only entries allowed to float. In
+`blacklist` mode they remain exclusions. The list keys keep their historical names so existing configs continue to work.
 
 See [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) for the full review, the bug catalogue and the improvement plan.
 

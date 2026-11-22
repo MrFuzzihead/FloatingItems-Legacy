@@ -3,6 +3,7 @@ package com.mrfuzzihead.floatingitems.api;
 import net.minecraft.item.ItemStack;
 
 import com.mrfuzzihead.floatingitems.FIConfig;
+import com.mrfuzzihead.floatingitems.ItemFilterMode;
 
 /**
  * Small read-only API for querying FloatingItems.
@@ -25,8 +26,15 @@ public final class FloatingItemsAPI {
     }
 
     /**
+     * @return true when the item lists are interpreted as a whitelist
+     */
+    public static boolean isWhitelistMode() {
+        return FIConfig.filterMode == ItemFilterMode.WHITELIST;
+    }
+
+    /**
      * @param stack the stack to query
-     * @return true if the current blacklist blocks the stack
+     * @return true if the current filter list matches the stack; in whitelist mode that means the stack is allowed
      */
     public static boolean isBlacklisted(ItemStack stack) {
         return getBlacklist().isBlacklisted(stack);

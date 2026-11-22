@@ -23,6 +23,7 @@ final class FIConfigParser {
 
     private static final Logger LOGGER = LogManager.getLogger(FIReference.MOD_ID);
 
+    static final String ITEM_FILTER_MODE_KEY = "Item Filter Mode";
     static final String ITEM_BLACKLIST_KEY = "Blacklist of Items that should not Float";
     static final String REGISTRY_BLACKLIST_KEY = "Blacklist of All Items regardless of Metadata that should not Float";
     static final String OREDICT_BLACKLIST_KEY = "Blacklist of OreDict Entries that should not Float";
@@ -52,14 +53,22 @@ final class FIConfigParser {
             }
         }
 
-        Property prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, ITEM_BLACKLIST_KEY, new String[] {});
-        prop.comment = "Format: {itemId}(metadata) or namespace:name[:metadata|:*]. Metadata defaults to 0; * means any metadata. Examples: {17}(1), minecraft:log:1, minecraft:stick:*";
+        Property prop = config
+            .get(FIReference.CONFIG_CATEGORY_UTIL, ITEM_FILTER_MODE_KEY, ItemFilterMode.BLACKLIST.getId());
+        prop.comment = "Item filter mode: blacklist (listed items do not float, default) or whitelist (only listed items float).";
+        ItemFilterMode itemFilterMode = ItemFilterMode.parse(prop.getString());
+        propertyOrder.add(prop.getName());
+
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, ITEM_BLACKLIST_KEY, new String[] {});
+        prop.comment = "Format: {itemId}(metadata) or namespace:name[:metadata|:*]. Metadata defaults to 0; * means any metadata. Examples: {17}(1), minecraft:log:1, minecraft:stick:*. "
+            + (itemFilterMode == ItemFilterMode.WHITELIST ? "In whitelist mode these are the only items that float."
+                : "In blacklist mode these items do not float.");
 
         List<BlacklistEntry> itemBlacklist = new ArrayList<BlacklistEntry>();
         for (String entry : prop.getStringList()) {
             BlacklistEntry parsed = BlacklistEntry.parse(entry);
             if (parsed == null) {
-                LOGGER.warn("Ignoring invalid item blacklist entry: {}", entry);
+                LOGGER.warn("Ignoring invalid item filter entry: {}", entry);
             } else {
                 itemBlacklist.add(parsed);
             }
@@ -67,7 +76,9 @@ final class FIConfigParser {
         propertyOrder.add(prop.getName());
 
         prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, REGISTRY_BLACKLIST_KEY, new int[] {});
-        prop.comment = "Format: Item ID. Example of Cobblestone: 4";
+        prop.comment = "Format: Item ID. Example of Cobblestone: 4. "
+            + (itemFilterMode == ItemFilterMode.WHITELIST ? "In whitelist mode these are allowed by item ID."
+                : "In blacklist mode these are blocked by item ID.");
         Set<Integer> registryBlacklist = new HashSet<Integer>();
         for (int id : prop.getIntList()) {
             registryBlacklist.add(id);
@@ -75,7 +86,9 @@ final class FIConfigParser {
         propertyOrder.add(prop.getName());
 
         prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, OREDICT_BLACKLIST_KEY, new String[] {});
-        prop.comment = "Format: OreDict entry. All metadata of the entry is blacklisted. Example: ingotCopper";
+        prop.comment = "Format: OreDict entry. All metadata of the entry is included. Example: ingotCopper. "
+            + (itemFilterMode == ItemFilterMode.WHITELIST ? "In whitelist mode these are allowed by ore name."
+                : "In blacklist mode these are blocked by ore name.");
         List<String> oreBlacklist = Arrays.asList(prop.getStringList());
         propertyOrder.add(prop.getName());
 
@@ -120,6 +133,7 @@ final class FIConfigParser {
             itemBlacklist,
             registryBlacklist,
             oreBlacklist,
+            itemFilterMode,
             new LiquidRules(liquidPolicy, fluidAllowlist, fluidDenylist),
             serverLang,
             updateCheckDisabled,
@@ -131,16 +145,19 @@ final class FIConfigParser {
         private final List<BlacklistEntry> items;
         private final Set<Integer> registryItems;
         private final List<String> oreDict;
+        private final ItemFilterMode itemFilterMode;
         private final LiquidRules liquidRules;
         private final String serverLang;
         private final boolean updateCheckDisabled;
         private final List<String> propertyOrder;
 
         ParsedConfig(List<BlacklistEntry> items, Set<Integer> registryItems, List<String> oreDict,
-            LiquidRules liquidRules, String serverLang, boolean updateCheckDisabled, List<String> propertyOrder) {
+            ItemFilterMode itemFilterMode, LiquidRules liquidRules, String serverLang, boolean updateCheckDisabled,
+            List<String> propertyOrder) {
             this.items = Collections.unmodifiableList(new ArrayList<BlacklistEntry>(items));
             this.registryItems = Collections.unmodifiableSet(new HashSet<Integer>(registryItems));
             this.oreDict = Collections.unmodifiableList(new ArrayList<String>(oreDict));
+            this.itemFilterMode = itemFilterMode == null ? ItemFilterMode.BLACKLIST : itemFilterMode;
             this.liquidRules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
             this.serverLang = serverLang;
             this.updateCheckDisabled = updateCheckDisabled;
@@ -157,6 +174,10 @@ final class FIConfigParser {
 
         List<String> getOreDict() {
             return oreDict;
+        }
+
+        ItemFilterMode getItemFilterMode() {
+            return itemFilterMode;
         }
 
         LiquidRules getLiquidRules() {

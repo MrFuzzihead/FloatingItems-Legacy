@@ -37,6 +37,7 @@ import cpw.mods.fml.client.config.IConfigElement;
  */
 public class FIConfigTest {
 
+    private static final String ITEM_FILTER_MODE = "Item Filter Mode";
     private static final String ITEM_BLACKLIST = "Blacklist of Items that should not Float";
     private static final String REGISTRY_BLACKLIST = "Blacklist of All Items regardless of Metadata that should not Float";
     private static final String OREDICT_BLACKLIST = "Blacklist of OreDict Entries that should not Float";
@@ -57,6 +58,7 @@ public class FIConfigTest {
     @Before
     public void resetConfigState() {
         FIConfig.blacklist = FIConfig.Blacklist.empty();
+        FIConfig.filterMode = ItemFilterMode.BLACKLIST;
         FIConfig.liquidRules = LiquidRules.defaults();
         FIConfig.serverLang = null;
         FIConfig.disableUpdateCheck = false;
@@ -75,6 +77,7 @@ public class FIConfigTest {
 
         assertTrue(file.exists());
         assertNotNull(FIConfig.blacklist);
+        assertEquals(ItemFilterMode.BLACKLIST, FIConfig.filterMode);
         assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
         assertTrue(
             FIConfig.liquidRules.getAllowlist()
@@ -118,7 +121,7 @@ public class FIConfigTest {
         FIConfig.init(configFile());
 
         List<IConfigElement> elements = FIConfig.getConfigElements();
-        assertEquals(8, elements.size());
+        assertEquals(9, elements.size());
 
         List<String> names = new java.util.ArrayList<String>();
         for (IConfigElement element : elements) {
@@ -126,6 +129,7 @@ public class FIConfigTest {
         }
         assertEquals(
             Arrays.asList(
+                ITEM_FILTER_MODE,
                 ITEM_BLACKLIST,
                 REGISTRY_BLACKLIST,
                 OREDICT_BLACKLIST,
@@ -146,9 +150,10 @@ public class FIConfigTest {
             java.nio.file.Files.readAllBytes(file.toPath()),
             java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(contents.contains("Metadata defaults to 0"));
-        assertTrue(contents.contains("All metadata of the entry is blacklisted"));
+        assertTrue(contents.contains("All metadata of the entry is included"));
         assertTrue(contents.contains("water_like"));
         assertTrue(contents.contains("denylist wins"));
+        assertTrue(contents.contains("whitelist"));
     }
 
     @Test
@@ -374,6 +379,7 @@ public class FIConfigTest {
             Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),
             Collections.singleton(280),
             Collections.singletonList("ingotCopper"));
+        FIConfig.filterMode = ItemFilterMode.WHITELIST;
         FIConfig.liquidRules = new LiquidRules(
             LiquidPolicy.WATER_LIKE,
             Collections.singletonList("salt_water"),
@@ -401,6 +407,7 @@ public class FIConfigTest {
                 .size());
         assertEquals("en_us", FIConfig.serverLang);
         assertFalse(FIConfig.disableUpdateCheck);
+        assertEquals(ItemFilterMode.BLACKLIST, FIConfig.filterMode);
         assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
         assertTrue(
             FIConfig.liquidRules.getAllowlist()
@@ -408,6 +415,25 @@ public class FIConfigTest {
         assertTrue(
             FIConfig.liquidRules.getDenylist()
                 .isEmpty());
+    }
+
+    @Test
+    public void whitelistModeIsLoaded() throws Exception {
+        writeConfig(
+            new String[] { "{280}(0)" },
+            new int[0],
+            new String[0],
+            "whitelist",
+            "water_like",
+            new String[0],
+            new String[0],
+            "en_us",
+            false);
+
+        FIConfig.init(configFile());
+
+        assertEquals(ItemFilterMode.WHITELIST, FIConfig.filterMode);
+        assertTrue(FIConfig.blacklist.isBlacklisted(new ItemStack(MinecraftTestBootstrap.stick(), 1, 0)));
     }
 
     @Test
@@ -652,8 +678,25 @@ public class FIConfigTest {
 
     private void writeConfig(String[] items, int[] registry, String[] oreDict, String liquidPolicy,
         String[] fluidAllowlist, String[] fluidDenylist, String language, boolean disableUpdate) throws Exception {
+        writeConfig(
+            items,
+            registry,
+            oreDict,
+            "blacklist",
+            liquidPolicy,
+            fluidAllowlist,
+            fluidDenylist,
+            language,
+            disableUpdate);
+    }
+
+    private void writeConfig(String[] items, int[] registry, String[] oreDict, String itemFilterMode,
+        String liquidPolicy, String[] fluidAllowlist, String[] fluidDenylist, String language, boolean disableUpdate)
+        throws Exception {
         File file = configFile();
         Configuration config = new Configuration(file);
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, ITEM_FILTER_MODE, "blacklist")
+            .set(itemFilterMode);
         config.get(FIReference.CONFIG_CATEGORY_UTIL, ITEM_BLACKLIST, new String[] {})
             .set(items);
         config.get(FIReference.CONFIG_CATEGORY_UTIL, REGISTRY_BLACKLIST, new int[] {})

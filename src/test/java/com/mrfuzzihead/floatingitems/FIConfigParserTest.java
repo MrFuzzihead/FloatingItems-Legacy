@@ -35,6 +35,8 @@ public class FIConfigParserTest {
     @Test
     public void parsesValidEntriesAndSkipsMalformedOnesIndependently() throws Exception {
         Configuration config = configuration();
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.ITEM_FILTER_MODE_KEY, "blacklist")
+            .set("whitelist");
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.ITEM_BLACKLIST_KEY, new String[] {})
             .set(new String[] { "garbage", "{280}(0)", "minecraft:stick:3", "{280}(" });
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.REGISTRY_BLACKLIST_KEY, new int[] {})
@@ -69,6 +71,7 @@ public class FIConfigParserTest {
             parsed.getItems()
                 .get(1)
                 .getMeta());
+        assertEquals(ItemFilterMode.WHITELIST, parsed.getItemFilterMode());
         assertEquals("de_de", parsed.getServerLang());
         assertTrue(parsed.isUpdateCheckDisabled());
         assertEquals(new java.util.HashSet<Integer>(Arrays.asList(280, 4)), parsed.getRegistryItems());
@@ -87,6 +90,7 @@ public class FIConfigParserTest {
                 .getDenylist());
         assertEquals(
             Arrays.asList(
+                FIConfigParser.ITEM_FILTER_MODE_KEY,
                 FIConfigParser.ITEM_BLACKLIST_KEY,
                 FIConfigParser.REGISTRY_BLACKLIST_KEY,
                 FIConfigParser.OREDICT_BLACKLIST_KEY,
@@ -111,6 +115,7 @@ public class FIConfigParserTest {
         assertTrue(
             parsed.getOreDict()
                 .isEmpty());
+        assertEquals(ItemFilterMode.BLACKLIST, parsed.getItemFilterMode());
         assertEquals("en_us", parsed.getServerLang());
         assertFalse(parsed.isUpdateCheckDisabled());
         assertEquals(
@@ -125,6 +130,18 @@ public class FIConfigParserTest {
             parsed.getLiquidRules()
                 .getDenylist()
                 .isEmpty());
+    }
+
+    @Test
+    public void invalidItemFilterModeFallsBackToBlacklist() throws Exception {
+        Configuration config = configuration();
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.ITEM_FILTER_MODE_KEY, "blacklist")
+            .set("not_a_mode");
+        config.save();
+
+        FIConfigParser.ParsedConfig parsed = FIConfigParser.parse(config, true);
+
+        assertEquals(ItemFilterMode.BLACKLIST, parsed.getItemFilterMode());
     }
 
     @Test

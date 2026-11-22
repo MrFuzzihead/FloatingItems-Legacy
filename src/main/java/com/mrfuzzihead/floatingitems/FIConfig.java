@@ -28,6 +28,9 @@ public class FIConfig {
      */
     public static volatile FIConfigSnapshot blacklist = FIConfigSnapshot.empty();
 
+    /** Whether {@link #blacklist} is an exclusion list or an allow-only list. */
+    public static volatile ItemFilterMode filterMode = ItemFilterMode.BLACKLIST;
+
     /** Immutable fluid policy published alongside the blacklist snapshot. */
     public static volatile LiquidRules liquidRules = LiquidRules.defaults();
 
@@ -65,6 +68,7 @@ public class FIConfig {
             config.save();
 
             blacklist = snapshot;
+            filterMode = parsed.getItemFilterMode();
             liquidRules = parsed.getLiquidRules();
             serverLang = parsed.getServerLang();
             disableUpdateCheck = parsed.isUpdateCheckDisabled();
@@ -78,6 +82,7 @@ public class FIConfig {
 
     private static void resetToDefaults() {
         blacklist = FIConfigSnapshot.empty();
+        filterMode = ItemFilterMode.BLACKLIST;
         liquidRules = LiquidRules.defaults();
         serverLang = "en_us";
         disableUpdateCheck = false;

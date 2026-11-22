@@ -60,6 +60,84 @@ public class FloatingItemPolicyTest {
     }
 
     @Test
+    public void whitelistModeOnlyFloatsListedStacks() {
+        World world = mock(World.class);
+        Block water = mock(Block.class);
+        when(water.getMaterial()).thenReturn(Material.water);
+        when(world.getBlock(0, 0, 0)).thenReturn(water);
+        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);
+        FIConfig.Blacklist whitelist = new FIConfig.Blacklist(
+            Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),
+            Collections.<Integer>emptySet(),
+            Collections.<String>emptyList());
+
+        assertTrue(
+            FloatingItemPolicy.shouldFloat(
+                new ItemStack(MinecraftTestBootstrap.stick(), 1, 0),
+                world,
+                box,
+                whitelist,
+                LiquidRules.defaults(),
+                ItemFilterMode.WHITELIST));
+        assertFalse(
+            FloatingItemPolicy.shouldFloat(
+                new ItemStack(MinecraftTestBootstrap.stick(), 1, 1),
+                world,
+                box,
+                whitelist,
+                LiquidRules.defaults(),
+                ItemFilterMode.WHITELIST));
+    }
+
+    @Test
+    public void whitelistModeWithAnEmptyListFloatsNothing() {
+        World world = mock(World.class);
+        Block water = mock(Block.class);
+        when(water.getMaterial()).thenReturn(Material.water);
+        when(world.getBlock(0, 0, 0)).thenReturn(water);
+        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);
+
+        assertFalse(
+            FloatingItemPolicy.shouldFloat(
+                new ItemStack(MinecraftTestBootstrap.stick(), 1, 0),
+                world,
+                box,
+                FIConfig.Blacklist.empty(),
+                LiquidRules.defaults(),
+                ItemFilterMode.WHITELIST));
+    }
+
+    @Test
+    public void blacklistModeStillFloatsUnlistedStacks() {
+        World world = mock(World.class);
+        Block water = mock(Block.class);
+        when(water.getMaterial()).thenReturn(Material.water);
+        when(world.getBlock(0, 0, 0)).thenReturn(water);
+        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);
+        FIConfig.Blacklist blacklist = new FIConfig.Blacklist(
+            Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),
+            Collections.<Integer>emptySet(),
+            Collections.<String>emptyList());
+
+        assertTrue(
+            FloatingItemPolicy.shouldFloat(
+                new ItemStack(MinecraftTestBootstrap.stick(), 1, 1),
+                world,
+                box,
+                blacklist,
+                LiquidRules.defaults(),
+                ItemFilterMode.BLACKLIST));
+        assertFalse(
+            FloatingItemPolicy.shouldFloat(
+                new ItemStack(MinecraftTestBootstrap.stick(), 1, 0),
+                world,
+                box,
+                blacklist,
+                LiquidRules.defaults(),
+                ItemFilterMode.BLACKLIST));
+    }
+
+    @Test
     public void nullStacksAndNullItemsDoNotFloat() {
         World world = mock(World.class);
         AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);

@@ -28,6 +28,7 @@ import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.floatingitems.FIConfig;
 import com.mrfuzzihead.floatingitems.FIReference;
+import com.mrfuzzihead.floatingitems.ItemFilterMode;
 
 import cpw.mods.fml.client.event.ConfigChangedEvent;
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -103,6 +104,8 @@ final class FloatingItemsGameTests {
     private static EntityItem mergeItemB;
     private static EntityItem despawnItem;
     private static EntityItem moddedLiquidItem;
+    private static EntityItem whitelistItem;
+    private static EntityItem unlistedItem;
     private static ItemStack nbtStack;
     private static double waterStartY;
     private static double negativeStartY;
@@ -113,6 +116,8 @@ final class FloatingItemsGameTests {
     private static double chunkBorderStartY;
     private static double nbtStartY;
     private static double moddedLiquidStartY;
+    private static double whitelistStartY;
+    private static double unlistedStartY;
     private static ForgeChunkManager.Ticket chunkTicket;
 
     private FloatingItemsGameTests() {}
@@ -434,6 +439,18 @@ final class FloatingItemsGameTests {
                 moddedLiquidStartY = moddedLiquidItem.posY;
                 break;
 
+            case 13:
+                FIConfig.filterMode = ItemFilterMode.WHITELIST;
+                FIConfig.blacklist = new FIConfig.Blacklist(
+                    Collections.singletonList(configItem("{280}(0)")),
+                    Collections.<Integer>emptySet(),
+                    Collections.<String>emptyList());
+                whitelistItem = spawn(0.5D, WATER_START_Y, 0.5D, new ItemStack(Items.stick), 0.2D);
+                whitelistStartY = whitelistItem.posY;
+                unlistedItem = spawn(0.5D, WATER_START_Y, 0.9D, new ItemStack(Items.apple), 0.0D);
+                unlistedStartY = unlistedItem.posY;
+                break;
+
             default:
                 finish();
                 break;
@@ -577,6 +594,15 @@ final class FloatingItemsGameTests {
                     moddedLiquidItem.isEntityAlive() && moddedLiquidItem.posY <= moddedLiquidStartY + 0.2D);
                 break;
 
+            case 13:
+                check(
+                    "a whitelisted item floats",
+                    whitelistItem.isEntityAlive() && whitelistItem.posY > whitelistStartY + 0.2D);
+                check(
+                    "an unlisted item does not float in whitelist mode",
+                    unlistedItem.isEntityAlive() && unlistedItem.posY <= unlistedStartY + 0.2D);
+                break;
+
             default:
                 break;
         }
@@ -603,7 +629,14 @@ final class FloatingItemsGameTests {
     }
 
     private static void resetItemBlacklistConfig() {
-        setItemBlacklistConfig(new String[0]);
+        Configuration config = config();
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, ITEM_BLACKLIST_KEY, new String[0])
+            .set(new String[0]);
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, "Item Filter Mode", "blacklist")
+            .set("blacklist");
+        FMLCommonHandler.instance()
+            .bus()
+            .post(new ConfigChangedEvent.OnConfigChangedEvent(FIReference.MOD_ID, null, false, false));
     }
 
     private static void setItemBlacklistConfig(String... entries) {
