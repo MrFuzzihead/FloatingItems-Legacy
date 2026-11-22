@@ -5,8 +5,9 @@ Scope: `src/main/java` (9 classes, ~1,500 LOC including the 1,024-line `FILang`)
 (mixin configs, `mcmod.info`), Gradle/GTNH build, CI workflows.  
 Baseline: Minecraft 1.7.10 / Forge 10.13.4.1614 / GTNH buildscript 2.0.34 / UniMixins 0.3.x.
 
-This document records the review. The P0-P3 bug-fix, cleanup and refactor batches are applied as noted in the
-tables below. The remaining work is the feature backlog in §7; B-25 is closed by design. The text below keeps the
+This document records the review. All P0-P3 bug-fix, cleanup, refactor and feature batches are applied as noted in
+the tables below. The only exceptions are F-09 (not planned), F-16 (deferred until project pages exist) and the
+narrow live chunk unload/reload game-test follow-up under F-14. B-25 is closed by design. The text below keeps the
 original defect descriptions for context; each change log records what was actually changed.
 
 The companion test harness is described in §9 and wired through `addon.gradle.kts`, `dependencies.gradle`,
@@ -338,7 +339,7 @@ status` reports them, and the game suite verifies counting and cache hits.
 | `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus an 18-phase assertion suite. |
 | `src/smokeTest/java/...` | A non-shipped `FloatingItems Smoke Test` mod used by `smokeTestServer`. |
 | `.github/workflows/game-test.yml` | Installs Java 8 + 25, runs `./gradlew test gameTestServer`, checks the `FLOATINGITEMS_GAMETEST_OK` marker, uploads the server log and coverage. |
-| `README.md` | Testing commands and the remaining P3 marker policy. |
+| `README.md` | Testing commands and the marker policy for game/smoke tests. |
 
 ### 9.2 Unit tests
 
@@ -431,7 +432,7 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 
 ### P0 — release blockers (done in this revision)
 
-The P0 batch below is implemented and covered by the tests in §9; P1 and P2 are also complete, and the P3 cleanup/refactors are applied. The remaining work is the feature backlog in §7.
+The P0 batch below is implemented and covered by the tests in §9; P1-P3 are also complete. There is no open feature backlog beyond F-16 (deferred) and the F-14 live unload/reload test follow-up.
 
 1. **B-02/B-03/B-01** (done): validate every blacklist entry, skip malformed strings, defer item resolution to
    postInit and drop ids that still do not resolve, and never create a null item that crashes the server.
@@ -454,7 +455,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 and P2 are
 12. **B-23** (done): publish an immutable blacklist snapshot; mutable arrays removed.
 13. **B-05/B-24** (done): stable `FIConfigItem` identity with `equals`/`hashCode`.
 
-### P3 — cleanup / features (cleanup done; feature backlog remains)
+### P3 — cleanup / features (applied)
 
 14. D-03/D-09/D-11/D-12/D-15 cleanup done; D-08 intentionally kept; D-02/D-04/D-05 retained as deprecated public API shims.
 15. R-01/R-02/R-03/R-04/R-05/R-06/R-07/R-08/R-09/R-11/R-12/R-13/R-14/R-15 are applied.

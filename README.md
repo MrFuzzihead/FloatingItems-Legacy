@@ -58,8 +58,9 @@ The game test is a non-shipped `@Mod` in `src/gameTest/java`; it is only on the 
 real `EntityItem` physics, negative coordinates, the item filter rules, source vs flowing water, partial submersion,
 chunk borders, item NBT, merge/despawn, config reload, dimension scopes, debug counters, and the event-bus wiring.
 
-The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites currently have no skipped or xfail tests. Remaining feature work is tracked in
-[CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md).
+The P0-P3 batches are complete. The unit and in-game suites have no skipped or xfail tests. The only outstanding
+items are F-09 (not planned), F-16 (deferred until project pages exist) and the live chunk-unload/reload follow-up;
+details are in [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md).
 
 ### Configuration
 
