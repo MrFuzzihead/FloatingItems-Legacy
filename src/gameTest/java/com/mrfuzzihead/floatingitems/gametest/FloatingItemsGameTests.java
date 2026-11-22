@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.material.MapColor;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.init.Blocks;
@@ -22,6 +21,9 @@ import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.IFluidBlock;
 import net.minecraftforge.oredict.OreDictionary;
 
 import com.mrfuzzihead.floatingitems.FIConfig;
@@ -72,18 +74,9 @@ final class FloatingItemsGameTests {
 
     private static final AtomicInteger COUNTING_CALLS = new AtomicInteger();
     private static final Item COUNTING_ITEM = new CountingItem();
-    private static final Material MODDED_LIQUID_MATERIAL = new Material(MapColor.waterColor) {
-
-        @Override
-        public boolean isLiquid() {
-            return true;
-        }
-
-        @Override
-        public boolean blocksMovement() {
-            return false;
-        }
-    };
+    private static final Fluid MODDED_LIQUID_FLUID = new Fluid("floatingitems_test_oil").setDensity(1200)
+        .setTemperature(300)
+        .setViscosity(1500);
     private static final Block MODDED_LIQUID = new GameTestLiquidBlock();
 
     private static WorldServer world;
@@ -575,11 +568,12 @@ final class FloatingItemsGameTests {
 
             case 12:
                 check(
-                    "the modded-liquid test block is not water",
-                    world.getBlock(MODDED_LIQUID_X, FLOOR_Y + 1, MODDED_LIQUID_Z)
-                        .getMaterial() != Material.water);
+                    "the modded-liquid test block is a Forge fluid with water material",
+                    world.getBlock(MODDED_LIQUID_X, FLOOR_Y + 1, MODDED_LIQUID_Z) instanceof IFluidBlock
+                        && world.getBlock(MODDED_LIQUID_X, FLOOR_Y + 1, MODDED_LIQUID_Z)
+                            .getMaterial() == Material.water);
                 check(
-                    "an item in a non-water modded liquid does not receive water buoyancy",
+                    "an item in an oil-like Forge fluid does not receive water buoyancy",
                     moddedLiquidItem.isEntityAlive() && moddedLiquidItem.posY <= moddedLiquidStartY + 0.2D);
                 break;
 
@@ -712,12 +706,32 @@ final class FloatingItemsGameTests {
         }
     }
 
-    /** A liquid-like material that is deliberately not {@link Material#water}. */
-    private static final class GameTestLiquidBlock extends Block {
+    /** A Forge fluid with water material and an oil-like name, used to prove the fluid policy wins. */
+    private static final class GameTestLiquidBlock extends Block implements IFluidBlock {
 
         GameTestLiquidBlock() {
-            super(MODDED_LIQUID_MATERIAL);
+            super(Material.water);
             setBlockName("floatingItemsGameTestLiquid");
+        }
+
+        @Override
+        public Fluid getFluid() {
+            return MODDED_LIQUID_FLUID;
+        }
+
+        @Override
+        public FluidStack drain(World world, int x, int y, int z, boolean doDrain) {
+            return null;
+        }
+
+        @Override
+        public boolean canDrain(World world, int x, int y, int z) {
+            return false;
+        }
+
+        @Override
+        public float getFilledPercentage(World world, int x, int y, int z) {
+            return 1.0F;
         }
 
         @Override

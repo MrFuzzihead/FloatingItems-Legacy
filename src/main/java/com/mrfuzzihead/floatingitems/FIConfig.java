@@ -28,6 +28,9 @@ public class FIConfig {
      */
     public static volatile FIConfigSnapshot blacklist = FIConfigSnapshot.empty();
 
+    /** Immutable fluid policy published alongside the blacklist snapshot. */
+    public static volatile LiquidRules liquidRules = LiquidRules.defaults();
+
     public static String serverLang;
 
     public static boolean disableUpdateCheck;
@@ -62,6 +65,7 @@ public class FIConfig {
             config.save();
 
             blacklist = snapshot;
+            liquidRules = parsed.getLiquidRules();
             serverLang = parsed.getServerLang();
             disableUpdateCheck = parsed.isUpdateCheckDisabled();
         } catch (final Exception e) {
@@ -74,6 +78,7 @@ public class FIConfig {
 
     private static void resetToDefaults() {
         blacklist = FIConfigSnapshot.empty();
+        liquidRules = LiquidRules.defaults();
         serverLang = "en_us";
         disableUpdateCheck = false;
     }

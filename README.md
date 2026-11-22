@@ -47,7 +47,7 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 94 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 106 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
 | `./gradlew gameTestServer` | boots a real dedicated server, runs 23 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
@@ -69,8 +69,15 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 | Blacklist of Items that should not Float | `{itemId}(metadata)` or `namespace:name[:metadata|:*]` (`*` = any metadata) |
 | Blacklist of All Items regardless of Metadata | item ID |
 | Blacklist of OreDict Entries that should not Float | ore-dictionary name — all metadata of the entry |
+| Liquid Policy | `water_like` (default), `water`, or `material_water` |
+| Floating Fluid Allowlist | Forge fluid names that always float, even if the policy would reject them |
+| Floating Fluid Denylist | Forge fluid names that never float; wins over the allowlist |
 | Default Server language | locale code, e.g. `en_us` |
 | Disable FloatingItems Update Check | boolean - disables both the GitHub request and the message |
+
+`water_like` is the default: vanilla water plus water-named Forge fluids whose density is 800–1200, temperature is
+250–400 and viscosity is 500–1500. Oil-like and hot fluids are rejected. Use `water` for vanilla water only, `material_water` for the legacy
+`Material.water` behaviour, or the allowlist for a specific modded fluid. The denylist always wins.
 
 See [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) for the full review, the bug catalogue and the improvement plan.
 

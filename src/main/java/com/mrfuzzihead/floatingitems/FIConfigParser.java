@@ -26,6 +26,9 @@ final class FIConfigParser {
     static final String ITEM_BLACKLIST_KEY = "Blacklist of Items that should not Float";
     static final String REGISTRY_BLACKLIST_KEY = "Blacklist of All Items regardless of Metadata that should not Float";
     static final String OREDICT_BLACKLIST_KEY = "Blacklist of OreDict Entries that should not Float";
+    static final String LIQUID_POLICY_KEY = "Liquid Policy";
+    static final String FLUID_ALLOWLIST_KEY = "Floating Fluid Allowlist";
+    static final String FLUID_DENYLIST_KEY = "Floating Fluid Denylist";
     static final String SERVER_LANGUAGE_KEY = "Default Server language";
     static final String UPDATE_CHECK_KEY = "Disable FloatingItems Update Check";
     static final String LEGACY_UPDATE_CHECK_KEY = "Disable FloatingItems Update Checker Message";
@@ -76,6 +79,21 @@ final class FIConfigParser {
         List<String> oreBlacklist = Arrays.asList(prop.getStringList());
         propertyOrder.add(prop.getName());
 
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, LIQUID_POLICY_KEY, LiquidPolicy.WATER_LIKE.getId());
+        prop.comment = "Liquid policy: water_like (default: water plus water-named Forge fluids with density 800-1200, temperature 250-400 and viscosity 500-1500), water (vanilla water only), or material_water (legacy Material.water check).";
+        LiquidPolicy liquidPolicy = LiquidPolicy.parse(prop.getString());
+        propertyOrder.add(prop.getName());
+
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, FLUID_ALLOWLIST_KEY, new String[] {});
+        prop.comment = "Forge fluid names that always float, even when the liquid policy would reject them. Example: salt_water";
+        List<String> fluidAllowlist = Arrays.asList(prop.getStringList());
+        propertyOrder.add(prop.getName());
+
+        prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, FLUID_DENYLIST_KEY, new String[] {});
+        prop.comment = "Forge fluid names that never float. The denylist wins over the allowlist. Example: oil";
+        List<String> fluidDenylist = Arrays.asList(prop.getStringList());
+        propertyOrder.add(prop.getName());
+
         prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, SERVER_LANGUAGE_KEY, "en_us");
         prop.comment = "Server language codes are based off the Minecraft .lang files. See https://minecraft.gamepedia.com/Language for list.";
         String serverLang = prop.getString();
@@ -102,6 +120,7 @@ final class FIConfigParser {
             itemBlacklist,
             registryBlacklist,
             oreBlacklist,
+            new LiquidRules(liquidPolicy, fluidAllowlist, fluidDenylist),
             serverLang,
             updateCheckDisabled,
             propertyOrder);
@@ -112,15 +131,17 @@ final class FIConfigParser {
         private final List<BlacklistEntry> items;
         private final Set<Integer> registryItems;
         private final List<String> oreDict;
+        private final LiquidRules liquidRules;
         private final String serverLang;
         private final boolean updateCheckDisabled;
         private final List<String> propertyOrder;
 
-        ParsedConfig(List<BlacklistEntry> items, Set<Integer> registryItems, List<String> oreDict, String serverLang,
-            boolean updateCheckDisabled, List<String> propertyOrder) {
+        ParsedConfig(List<BlacklistEntry> items, Set<Integer> registryItems, List<String> oreDict,
+            LiquidRules liquidRules, String serverLang, boolean updateCheckDisabled, List<String> propertyOrder) {
             this.items = Collections.unmodifiableList(new ArrayList<BlacklistEntry>(items));
             this.registryItems = Collections.unmodifiableSet(new HashSet<Integer>(registryItems));
             this.oreDict = Collections.unmodifiableList(new ArrayList<String>(oreDict));
+            this.liquidRules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
             this.serverLang = serverLang;
             this.updateCheckDisabled = updateCheckDisabled;
             this.propertyOrder = Collections.unmodifiableList(new ArrayList<String>(propertyOrder));
@@ -136,6 +157,10 @@ final class FIConfigParser {
 
         List<String> getOreDict() {
             return oreDict;
+        }
+
+        LiquidRules getLiquidRules() {
+            return liquidRules;
         }
 
         String getServerLang() {

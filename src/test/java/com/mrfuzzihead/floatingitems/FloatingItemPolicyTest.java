@@ -3,14 +3,14 @@ package com.mrfuzzihead.floatingitems;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 
+import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.Item;
@@ -20,7 +20,6 @@ import net.minecraft.world.World;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 
 import com.mrfuzzihead.floatingitems.testutil.MinecraftTestBootstrap;
 
@@ -34,7 +33,6 @@ public class FloatingItemPolicyTest {
     @Test
     public void blacklistedStacksDoNotFloat() {
         World world = mock(World.class);
-        when(world.isMaterialInBB(any(AxisAlignedBB.class), eq(Material.water))).thenReturn(true);
         AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);
         ItemStack stack = new ItemStack(MinecraftTestBootstrap.stick(), 1, 0);
         FIConfig.Blacklist blacklist = new FIConfig.Blacklist(
@@ -46,9 +44,11 @@ public class FloatingItemPolicyTest {
     }
 
     @Test
-    public void clearStacksInWaterFloat() {
+    public void clearStacksInAllowedWaterFloat() {
         World world = mock(World.class);
-        when(world.isMaterialInBB(any(AxisAlignedBB.class), eq(Material.water))).thenReturn(true);
+        Block water = mock(Block.class);
+        when(water.getMaterial()).thenReturn(Material.water);
+        when(world.getBlock(0, 0, 0)).thenReturn(water);
         AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);
 
         assertTrue(
@@ -69,24 +69,21 @@ public class FloatingItemPolicyTest {
     }
 
     @Test
-    public void waterCheckUsesTheContractedBoundingBox() {
+    public void liquidCheckDelegatesToTheContractedBoundingBox() {
         World world = mock(World.class);
-        when(world.isMaterialInBB(any(AxisAlignedBB.class), eq(Material.water))).thenReturn(true);
-        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);
+        Block water = mock(Block.class);
+        when(water.getMaterial()).thenReturn(Material.water);
+        when(world.getBlock(0, 1, 0)).thenReturn(water);
+        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.999D, 0.0D, 0.25D, 1.5D, 0.25D);
 
-        assertTrue(FloatingItemPolicy.isInWater(world, box));
-
-        ArgumentCaptor<AxisAlignedBB> captor = ArgumentCaptor.forClass(AxisAlignedBB.class);
-        verify(world).isMaterialInBB(captor.capture(), eq(Material.water));
-        AxisAlignedBB checked = captor.getValue();
-        assertEquals(box.minY + 0.001D, checked.minY, 1.0E-9D);
-        assertEquals(box.maxY - 0.001D, checked.maxY, 1.0E-9D);
+        assertTrue(FloatingItemPolicy.isInFloatingLiquid(world, box, LiquidRules.defaults()));
+        verify(world, never()).getBlock(0, 0, 0);
     }
 
     @Test
-    public void nullWorldOrBoxIsNotInWater() {
-        assertFalse(FloatingItemPolicy.isInWater(null, AxisAlignedBB.getBoundingBox(0, 0, 0, 1, 1, 1)));
-        assertFalse(FloatingItemPolicy.isInWater(mock(World.class), null));
+    public void nullWorldOrBoxIsNotInLiquid() {
+        assertFalse(FloatingItemPolicy.isInFloatingLiquid(null, AxisAlignedBB.getBoundingBox(0, 0, 0, 1, 1, 1), null));
+        assertFalse(FloatingItemPolicy.isInFloatingLiquid(mock(World.class), null, null));
     }
 
     @Test

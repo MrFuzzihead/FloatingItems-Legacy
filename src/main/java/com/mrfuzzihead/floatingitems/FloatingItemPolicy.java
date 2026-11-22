@@ -1,6 +1,5 @@
 package com.mrfuzzihead.floatingitems;
 
-import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.AxisAlignedBB;
@@ -13,7 +12,7 @@ import com.mrfuzzihead.floatingitems.api.BlacklistSnapshot;
  *
  * <p>
  * This class deliberately has no dependency on a mixin-transformed entity. The mixin only reads the post-hook stack,
- * delegates the blacklist/water decision here, and applies the motion helper when the decision is positive.
+ * delegates the blacklist/liquid decision here, and applies the motion helper when the decision is positive.
  * </p>
  */
 public final class FloatingItemPolicy {
@@ -30,9 +29,23 @@ public final class FloatingItemPolicy {
      * @param world     the entity world
      * @param box       the entity bounding box
      * @param blacklist the immutable blacklist snapshot, or {@code null}
-     * @return true when the item is not blacklisted and is touching water
+     * @return true when the item is not blacklisted and is touching an allowed liquid
      */
     public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> blacklist) {
+
+        return shouldFloat(stack, world, box, blacklist, LiquidRules.defaults());
+    }
+
+    /**
+     * @param stack       the post-hook item stack
+     * @param world       the entity world
+     * @param box         the entity bounding box
+     * @param blacklist   the immutable blacklist snapshot, or {@code null}
+     * @param liquidRules the immutable liquid policy, or {@code null} for the safe default
+     * @return true when the item is not blacklisted and is touching an allowed liquid
+     */
+    public static boolean shouldFloat(ItemStack stack, World world, AxisAlignedBB box, BlacklistSnapshot<?> blacklist,
+        LiquidRules liquidRules) {
 
         if (stack == null || stack.getItem() == null) {
             return false;
@@ -40,20 +53,32 @@ public final class FloatingItemPolicy {
         if (blacklist != null && blacklist.isBlacklisted(stack)) {
             return false;
         }
-        return isInWater(world, box);
+        LiquidRules rules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
+        return rules.isInFloatingLiquid(world, box);
     }
 
     /**
      * @param world the entity world
      * @param box   the entity bounding box
-     * @return true when the box overlaps a water block
+     * @return true when the box overlaps a liquid allowed by the default policy
+     * @deprecated use {@link #isInFloatingLiquid(World, AxisAlignedBB, LiquidRules)}
      */
+    @Deprecated
     public static boolean isInWater(World world, AxisAlignedBB box) {
 
-        if (world == null || box == null) {
-            return false;
-        }
-        return world.isMaterialInBB(box.contract(0.001D, 0.001D, 0.001D), Material.water);
+        return isInFloatingLiquid(world, box, LiquidRules.defaults());
+    }
+
+    /**
+     * @param world       the entity world
+     * @param box         the entity bounding box
+     * @param liquidRules the immutable liquid policy, or {@code null} for the safe default
+     * @return true when the box overlaps a liquid allowed by the policy
+     */
+    public static boolean isInFloatingLiquid(World world, AxisAlignedBB box, LiquidRules liquidRules) {
+
+        LiquidRules rules = liquidRules == null ? LiquidRules.defaults() : liquidRules;
+        return rules.isInFloatingLiquid(world, box);
     }
 
     /**

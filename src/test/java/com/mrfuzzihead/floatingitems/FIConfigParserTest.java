@@ -41,6 +41,12 @@ public class FIConfigParserTest {
             .set(new int[] { 280, 4 });
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.OREDICT_BLACKLIST_KEY, new String[] {})
             .set(new String[] { "ingotCopper", "dustTinyGold" });
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.LIQUID_POLICY_KEY, "water")
+            .set("water_like");
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.FLUID_ALLOWLIST_KEY, new String[] {})
+            .set(new String[] { "salt_water" });
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.FLUID_DENYLIST_KEY, new String[] {})
+            .set(new String[] { "oil" });
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.SERVER_LANGUAGE_KEY, "en_us")
             .set("de_de");
         config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.UPDATE_CHECK_KEY, false)
@@ -68,10 +74,25 @@ public class FIConfigParserTest {
         assertEquals(new java.util.HashSet<Integer>(Arrays.asList(280, 4)), parsed.getRegistryItems());
         assertEquals(Arrays.asList("ingotCopper", "dustTinyGold"), parsed.getOreDict());
         assertEquals(
+            LiquidPolicy.WATER_LIKE,
+            parsed.getLiquidRules()
+                .getPolicy());
+        assertEquals(
+            java.util.Collections.singleton("salt_water"),
+            parsed.getLiquidRules()
+                .getAllowlist());
+        assertEquals(
+            java.util.Collections.singleton("oil"),
+            parsed.getLiquidRules()
+                .getDenylist());
+        assertEquals(
             Arrays.asList(
                 FIConfigParser.ITEM_BLACKLIST_KEY,
                 FIConfigParser.REGISTRY_BLACKLIST_KEY,
                 FIConfigParser.OREDICT_BLACKLIST_KEY,
+                FIConfigParser.LIQUID_POLICY_KEY,
+                FIConfigParser.FLUID_ALLOWLIST_KEY,
+                FIConfigParser.FLUID_DENYLIST_KEY,
                 FIConfigParser.SERVER_LANGUAGE_KEY,
                 FIConfigParser.UPDATE_CHECK_KEY),
             parsed.getPropertyOrder());
@@ -92,6 +113,33 @@ public class FIConfigParserTest {
                 .isEmpty());
         assertEquals("en_us", parsed.getServerLang());
         assertFalse(parsed.isUpdateCheckDisabled());
+        assertEquals(
+            LiquidPolicy.WATER_LIKE,
+            parsed.getLiquidRules()
+                .getPolicy());
+        assertTrue(
+            parsed.getLiquidRules()
+                .getAllowlist()
+                .isEmpty());
+        assertTrue(
+            parsed.getLiquidRules()
+                .getDenylist()
+                .isEmpty());
+    }
+
+    @Test
+    public void invalidLiquidPolicyFallsBackToWaterLike() throws Exception {
+        Configuration config = configuration();
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FIConfigParser.LIQUID_POLICY_KEY, "water")
+            .set("not_a_policy");
+        config.save();
+
+        FIConfigParser.ParsedConfig parsed = FIConfigParser.parse(config, true);
+
+        assertEquals(
+            LiquidPolicy.WATER_LIKE,
+            parsed.getLiquidRules()
+                .getPolicy());
     }
 
     @Test
@@ -136,6 +184,12 @@ public class FIConfigParserTest {
         assertImmutable(parsed.getItems());
         assertImmutable(parsed.getRegistryItems());
         assertImmutable(parsed.getOreDict());
+        assertImmutable(
+            parsed.getLiquidRules()
+                .getAllowlist());
+        assertImmutable(
+            parsed.getLiquidRules()
+                .getDenylist());
         assertImmutable(parsed.getPropertyOrder());
     }
 

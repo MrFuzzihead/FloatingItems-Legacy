@@ -26,8 +26,12 @@ public abstract class EntityItemMixin {
     private boolean floatingItems$afterEntityItemUpdate(Item item, EntityItem entityItem) {
 
         boolean handledByItem = item.onEntityItemUpdate(entityItem);
-        if (!handledByItem && FloatingItemPolicy
-            .shouldFloat(entityItem.getEntityItem(), entityItem.worldObj, entityItem.boundingBox, FIConfig.blacklist)) {
+        if (!handledByItem && FloatingItemPolicy.shouldFloat(
+            entityItem.getEntityItem(),
+            entityItem.worldObj,
+            entityItem.boundingBox,
+            FIConfig.blacklist,
+            FIConfig.liquidRules)) {
             FloatingItemPolicy.applyBuoyancy(entityItem);
         }
         return handledByItem;

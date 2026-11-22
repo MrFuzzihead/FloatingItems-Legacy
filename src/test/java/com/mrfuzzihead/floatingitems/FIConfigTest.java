@@ -40,6 +40,9 @@ public class FIConfigTest {
     private static final String ITEM_BLACKLIST = "Blacklist of Items that should not Float";
     private static final String REGISTRY_BLACKLIST = "Blacklist of All Items regardless of Metadata that should not Float";
     private static final String OREDICT_BLACKLIST = "Blacklist of OreDict Entries that should not Float";
+    private static final String LIQUID_POLICY = "Liquid Policy";
+    private static final String FLUID_ALLOWLIST = "Floating Fluid Allowlist";
+    private static final String FLUID_DENYLIST = "Floating Fluid Denylist";
     private static final String SERVER_LANGUAGE = "Default Server language";
     private static final String DISABLE_UPDATE_CHECK = "Disable FloatingItems Update Check";
 
@@ -54,6 +57,7 @@ public class FIConfigTest {
     @Before
     public void resetConfigState() {
         FIConfig.blacklist = FIConfig.Blacklist.empty();
+        FIConfig.liquidRules = LiquidRules.defaults();
         FIConfig.serverLang = null;
         FIConfig.disableUpdateCheck = false;
         FIConfig.config = null;
@@ -71,6 +75,13 @@ public class FIConfigTest {
 
         assertTrue(file.exists());
         assertNotNull(FIConfig.blacklist);
+        assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
+        assertTrue(
+            FIConfig.liquidRules.getAllowlist()
+                .isEmpty());
+        assertTrue(
+            FIConfig.liquidRules.getDenylist()
+                .isEmpty());
         assertEquals(
             0,
             FIConfig.blacklist.getItems()
@@ -107,14 +118,22 @@ public class FIConfigTest {
         FIConfig.init(configFile());
 
         List<IConfigElement> elements = FIConfig.getConfigElements();
-        assertEquals(5, elements.size());
+        assertEquals(8, elements.size());
 
         List<String> names = new java.util.ArrayList<String>();
         for (IConfigElement element : elements) {
             names.add(element.getName());
         }
         assertEquals(
-            Arrays.asList(ITEM_BLACKLIST, REGISTRY_BLACKLIST, OREDICT_BLACKLIST, SERVER_LANGUAGE, DISABLE_UPDATE_CHECK),
+            Arrays.asList(
+                ITEM_BLACKLIST,
+                REGISTRY_BLACKLIST,
+                OREDICT_BLACKLIST,
+                LIQUID_POLICY,
+                FLUID_ALLOWLIST,
+                FLUID_DENYLIST,
+                SERVER_LANGUAGE,
+                DISABLE_UPDATE_CHECK),
             names);
     }
 
@@ -128,6 +147,8 @@ public class FIConfigTest {
             java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(contents.contains("Metadata defaults to 0"));
         assertTrue(contents.contains("All metadata of the entry is blacklisted"));
+        assertTrue(contents.contains("water_like"));
+        assertTrue(contents.contains("denylist wins"));
     }
 
     @Test
@@ -353,6 +374,10 @@ public class FIConfigTest {
             Collections.singletonList(new FIConfig.FIConfigItem("{280}(0)")),
             Collections.singleton(280),
             Collections.singletonList("ingotCopper"));
+        FIConfig.liquidRules = new LiquidRules(
+            LiquidPolicy.WATER_LIKE,
+            Collections.singletonList("salt_water"),
+            Collections.singletonList("oil"));
         FIConfig.serverLang = "de_de";
         FIConfig.disableUpdateCheck = true;
         FIConfig.config = mock(Configuration.class);
@@ -376,6 +401,32 @@ public class FIConfigTest {
                 .size());
         assertEquals("en_us", FIConfig.serverLang);
         assertFalse(FIConfig.disableUpdateCheck);
+        assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
+        assertTrue(
+            FIConfig.liquidRules.getAllowlist()
+                .isEmpty());
+        assertTrue(
+            FIConfig.liquidRules.getDenylist()
+                .isEmpty());
+    }
+
+    @Test
+    public void liquidPolicyAndFluidListsAreLoaded() throws Exception {
+        writeConfig(
+            new String[0],
+            new int[0],
+            new String[0],
+            "water_like",
+            new String[] { " Salt_Water ", "" },
+            new String[] { "OIL" },
+            "en_us",
+            false);
+
+        FIConfig.init(configFile());
+
+        assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
+        assertEquals(Collections.singleton("salt_water"), FIConfig.liquidRules.getAllowlist());
+        assertEquals(Collections.singleton("oil"), FIConfig.liquidRules.getDenylist());
     }
 
     @Test
@@ -596,6 +647,11 @@ public class FIConfigTest {
 
     private void writeConfig(String[] items, int[] registry, String[] oreDict, String language, boolean disableUpdate)
         throws Exception {
+        writeConfig(items, registry, oreDict, "water", new String[0], new String[0], language, disableUpdate);
+    }
+
+    private void writeConfig(String[] items, int[] registry, String[] oreDict, String liquidPolicy,
+        String[] fluidAllowlist, String[] fluidDenylist, String language, boolean disableUpdate) throws Exception {
         File file = configFile();
         Configuration config = new Configuration(file);
         config.get(FIReference.CONFIG_CATEGORY_UTIL, ITEM_BLACKLIST, new String[] {})
@@ -604,6 +660,12 @@ public class FIConfigTest {
             .set(registry);
         config.get(FIReference.CONFIG_CATEGORY_UTIL, OREDICT_BLACKLIST, new String[] {})
             .set(oreDict);
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, LIQUID_POLICY, "water")
+            .set(liquidPolicy);
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FLUID_ALLOWLIST, new String[] {})
+            .set(fluidAllowlist);
+        config.get(FIReference.CONFIG_CATEGORY_UTIL, FLUID_DENYLIST, new String[] {})
+            .set(fluidDenylist);
         config.get(FIReference.CONFIG_CATEGORY_UTIL, SERVER_LANGUAGE, "en_us")
             .set(language);
         config.get(FIReference.CONFIG_CATEGORY_UTIL, DISABLE_UPDATE_CHECK, false)
