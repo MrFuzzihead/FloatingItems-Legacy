@@ -40,6 +40,7 @@ final class FIConfigParser {
     static final String HORIZONTAL_DAMPING_KEY = "Floating Horizontal Damping";
     static final String MAX_UPWARD_SPEED_KEY = "Floating Maximum Upward Speed";
     static final String SURFACE_OFFSET_KEY = "Floating Surface Offset";
+    static final String SURFACE_BOBBING_KEY = "Floating Surface Bobbing";
     static final String DEBUG_COUNTERS_KEY = "Enable Debug Counters";
     static final String SERVER_LANGUAGE_KEY = "Default Server language";
     static final String UPDATE_CHECK_KEY = "Disable FloatingItems Update Check";
@@ -193,6 +194,13 @@ final class FIConfigParser {
         double surfaceOffset = prop.getDouble(BuoyancySettings.DEFAULT_SURFACE_OFFSET);
         propertyOrder.add(prop.getName());
 
+        prop = config
+            .get(FIReference.CONFIG_CATEGORY_UTIL, SURFACE_BOBBING_KEY, BuoyancySettings.DEFAULT_SURFACE_BOBBING);
+        prop.setLanguageKey("fi.config.surfaceBobbing");
+        prop.comment = "Add a tiny idle vertical oscillation while floating. Default: false.";
+        boolean surfaceBobbing = prop.getBoolean(BuoyancySettings.DEFAULT_SURFACE_BOBBING);
+        propertyOrder.add(prop.getName());
+
         prop = config.get(FIReference.CONFIG_CATEGORY_UTIL, DEBUG_COUNTERS_KEY, false);
         prop.setLanguageKey("fi.config.debugCounters");
         prop.comment = "Enable process-wide item evaluation, float and cache counters. Default: false.";
@@ -230,7 +238,7 @@ final class FIConfigParser {
             itemFilterMode,
             new ScopeRules(dimensionMode, dimensions, biomeMode, biomes, modMode, modIds),
             new LiquidRules(liquidPolicy, fluidAllowlist, fluidDenylist),
-            new BuoyancySettings(buoyancyLift, horizontalDamping, maxUpwardSpeed, surfaceOffset),
+            new BuoyancySettings(buoyancyLift, horizontalDamping, maxUpwardSpeed, surfaceOffset, surfaceBobbing),
             debugCounters,
             serverLang,
             updateCheckDisabled,

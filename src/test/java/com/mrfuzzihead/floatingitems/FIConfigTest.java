@@ -55,6 +55,7 @@ public class FIConfigTest {
     private static final String HORIZONTAL_DAMPING = "Floating Horizontal Damping";
     private static final String MAX_UPWARD_SPEED = "Floating Maximum Upward Speed";
     private static final String SURFACE_OFFSET = "Floating Surface Offset";
+    private static final String SURFACE_BOBBING = "Floating Surface Bobbing";
     private static final String DEBUG_COUNTERS = "Enable Debug Counters";
     private static final String SERVER_LANGUAGE = "Default Server language";
     private static final String DISABLE_UPDATE_CHECK = "Disable FloatingItems Update Check";
@@ -103,6 +104,7 @@ public class FIConfigTest {
         assertEquals(BuoyancySettings.DEFAULT_HORIZONTAL_DAMPING, FIConfig.buoyancy.getHorizontalDamping(), 1.0E-9D);
         assertEquals(BuoyancySettings.DEFAULT_MAX_UPWARD_SPEED, FIConfig.buoyancy.getMaxUpwardSpeed(), 1.0E-9D);
         assertEquals(BuoyancySettings.DEFAULT_SURFACE_OFFSET, FIConfig.buoyancy.getSurfaceOffset(), 1.0E-9D);
+        assertFalse(FIConfig.buoyancy.isSurfaceBobbing());
         assertFalse(FIConfig.debugCounters);
         assertTrue(
             FIConfig.liquidRules.getAllowlist()
@@ -146,7 +148,7 @@ public class FIConfigTest {
         FIConfig.init(configFile());
 
         List<IConfigElement> elements = FIConfig.getConfigElements();
-        assertEquals(20, elements.size());
+        assertEquals(21, elements.size());
 
         List<String> names = new java.util.ArrayList<String>();
         for (IConfigElement element : elements) {
@@ -179,6 +181,7 @@ public class FIConfigTest {
                 HORIZONTAL_DAMPING,
                 MAX_UPWARD_SPEED,
                 SURFACE_OFFSET,
+                SURFACE_BOBBING,
                 DEBUG_COUNTERS,
                 SERVER_LANGUAGE,
                 DISABLE_UPDATE_CHECK),
@@ -202,6 +205,7 @@ public class FIConfigTest {
         assertTrue(contents.contains("Dimension scope"));
         assertTrue(contents.contains("Mod-ID scope"));
         assertTrue(contents.contains("Enable process-wide item evaluation"));
+        assertTrue(contents.contains("tiny idle vertical oscillation"));
     }
 
     @Test
@@ -432,7 +436,7 @@ public class FIConfigTest {
             LiquidPolicy.WATER_LIKE,
             Collections.singletonList("salt_water"),
             Collections.singletonList("oil"));
-        FIConfig.buoyancy = new BuoyancySettings(0.2D, 0.5D, 0.3D, 0.1D);
+        FIConfig.buoyancy = new BuoyancySettings(0.2D, 0.5D, 0.3D, 0.1D, true);
         FIConfig.scopeRules = new ScopeRules(
             ScopeMode.WHITELIST,
             Collections.singletonList(0),
@@ -468,6 +472,7 @@ public class FIConfigTest {
         assertEquals(LiquidPolicy.WATER_LIKE, FIConfig.liquidRules.getPolicy());
         assertEquals(ScopeMode.ALL, FIConfig.scopeRules.getDimensionMode());
         assertEquals(BuoyancySettings.DEFAULT_LIFT, FIConfig.buoyancy.getLift(), 1.0E-9D);
+        assertFalse(FIConfig.buoyancy.isSurfaceBobbing());
         assertFalse(FIConfig.debugCounters);
         assertTrue(
             FIConfig.liquidRules.getAllowlist()

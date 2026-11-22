@@ -88,11 +88,12 @@ public final class FloatingItemsCommand extends CommandBase {
             new ChatComponentText(
                 String.format(
                     Locale.ROOT,
-                    "Buoyancy: lift=%.4f damping=%.3f maxSpeed=%.3f surfaceOffset=%.3f",
+                    "Buoyancy: lift=%.4f damping=%.3f maxSpeed=%.3f surfaceOffset=%.3f bobbing=%s",
                     buoyancy.getLift(),
                     buoyancy.getHorizontalDamping(),
                     buoyancy.getMaxUpwardSpeed(),
-                    buoyancy.getSurfaceOffset())));
+                    buoyancy.getSurfaceOffset(),
+                    buoyancy.isSurfaceBobbing())));
         sender.addChatMessage(
             new ChatComponentText(
                 String.format(

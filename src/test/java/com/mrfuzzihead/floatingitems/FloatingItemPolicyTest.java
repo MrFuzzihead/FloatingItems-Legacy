@@ -253,6 +253,18 @@ public class FloatingItemPolicyTest {
     }
 
     @Test
+    public void optionalSurfaceBobbingAddsASmallOscillation() {
+        Entity entity = mock(Entity.class);
+        entity.motionY = 0.0D;
+        entity.ticksExisted = 5;
+        when(entity.getEntityId()).thenReturn(0);
+
+        FloatingItemPolicy.applyBuoyancy(entity, new BuoyancySettings(0.0D, 1.0D, 1.0D, 0.0D, true));
+
+        assertEquals(FloatingItemPolicy.SLOW_LIFT + Math.sin(1.0D) * 0.002D, entity.motionY, 1.0E-9D);
+    }
+
+    @Test
     public void buoyancyDoesNotApplySlowLiftAtOrAboveThreshold() {
         Entity entity = mock(Entity.class);
         entity.motionY = 0.06D;

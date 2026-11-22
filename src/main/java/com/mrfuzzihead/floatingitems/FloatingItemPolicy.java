@@ -208,6 +208,9 @@ public final class FloatingItemPolicy {
         entity.motionY += entity.motionY < SLOW_LIFT_THRESHOLD ? SLOW_LIFT : 0.0D;
         entity.motionZ *= settings.getHorizontalDamping();
         entity.motionY += settings.getLift();
+        if (settings.isSurfaceBobbing()) {
+            entity.motionY += Math.sin((entity.ticksExisted + entity.getEntityId()) * 0.2D) * 0.002D;
+        }
         if (entity.motionY > settings.getMaxUpwardSpeed()) {
             entity.motionY = settings.getMaxUpwardSpeed();
         }

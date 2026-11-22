@@ -96,7 +96,8 @@ public class FloatingItemsCommandTest {
         assertTrue(output.contains("whitelist filter (1 item, 1 registry, 1 ore entries)"));
         assertTrue(output.contains("Liquid: water_like (allow=[salt_water], deny=[oil])"));
         assertTrue(output.contains("Scope: dimension=whitelist[0] biome=blacklist[ocean] mod=whitelist[minecraft]"));
-        assertTrue(output.contains("Buoyancy: lift=0.2000 damping=0.500 maxSpeed=0.300 surfaceOffset=0.100"));
+        assertTrue(
+            output.contains("Buoyancy: lift=0.2000 damping=0.500 maxSpeed=0.300 surfaceOffset=0.100 bobbing=false"));
         assertTrue(output.contains("Debug counters: disabled"));
     }
 

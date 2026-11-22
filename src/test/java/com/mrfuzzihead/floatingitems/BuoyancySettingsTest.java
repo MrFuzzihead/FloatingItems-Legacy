@@ -14,6 +14,7 @@ public class BuoyancySettingsTest {
         assertEquals(0.95D, defaults.getHorizontalDamping(), 0.0D);
         assertEquals(0.4D, defaults.getMaxUpwardSpeed(), 0.0D);
         assertEquals(0.0D, defaults.getSurfaceOffset(), 0.0D);
+        assertEquals(false, defaults.isSurfaceBobbing());
     }
 
     @Test

@@ -47,7 +47,7 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 135 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 140 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor, and the gameTest/smokeTest compile |
 | `./gradlew gameTestServer` | boots a real dedicated server, runs 32 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew smokeTestServer` | boots a real dedicated server without the game-test mod, verifies startup, then exits |
@@ -84,6 +84,7 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 | Enable Debug Counters | enables process-wide evaluation/float/cache counters; default `false` |
 | Default Server language | locale code, e.g. `en_us` |
 | Disable FloatingItems Update Check | boolean - disables both the GitHub request and the message |
+| Floating Surface Bobbing | adds a tiny idle vertical oscillation; default `false` |
 
 `water_like` is the default: vanilla water plus water-named Forge fluids whose density is 800–1200, temperature is
 250–400 and viscosity is 500–1500. Oil-like and hot fluids are rejected. Use `water` for vanilla water only, `material_water` for the legacy
@@ -91,6 +92,9 @@ The P0/P1/P2 batches and the P3 cleanup are fixed. The unit and in-game suites c
 
 In `whitelist` item-filter mode, the three item/registry/ore lists become the only entries allowed to float. In
 `blacklist` mode they remain exclusions. The list keys keep their historical names so existing configs continue to work.
+
+A successful GitHub update check is cached for six hours in the config directory, so restarting the server does not
+repeat the request. The cache is ignored when the mod version changes or the cache expires.
 
 The buoyancy values are validated and clamped. `Floating Surface Offset` extends the liquid-detection box downward, so
 a positive value lets an item settle slightly above the surface while a negative value keeps it lower.
@@ -104,6 +108,10 @@ without restarting. The same reload is available as an operator command.
 |---|---|---|
 | `/floatingitems status` | operator | Show the effective item filter, liquid policy and buoyancy settings |
 | `/floatingitems reload` | operator | Reload `FloatingItems.conf` and re-resolve item entries against the registry |
+
+FloatingItems is currently distributed via GitHub only; there are no Modrinth or CurseForge project pages yet, so
+publishing relationships are intentionally deferred. The physics regression table is in
+[docs/PHYSICS_REGRESSION.md](docs/PHYSICS_REGRESSION.md).
 
 See [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) for the full review, the bug catalogue and the improvement plan.
 

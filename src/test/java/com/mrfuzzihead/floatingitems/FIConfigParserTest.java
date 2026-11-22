@@ -174,6 +174,7 @@ public class FIConfigParserTest {
                 FIConfigParser.HORIZONTAL_DAMPING_KEY,
                 FIConfigParser.MAX_UPWARD_SPEED_KEY,
                 FIConfigParser.SURFACE_OFFSET_KEY,
+                FIConfigParser.SURFACE_BOBBING_KEY,
                 FIConfigParser.DEBUG_COUNTERS_KEY,
                 FIConfigParser.SERVER_LANGUAGE_KEY,
                 FIConfigParser.UPDATE_CHECK_KEY),
