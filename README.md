@@ -47,9 +47,9 @@ Everything is handled by the `com.gtnewhorizons.gtnhconvention` plugin:
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 122 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 126 headless JUnit 4 tests, no skipped tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
-| `./gradlew gameTestServer` | boots a real dedicated server, runs 26 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
+| `./gradlew gameTestServer` | boots a real dedicated server, runs 28 in-game checks, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer -PgameTest` | boots the server with the gameTest mod on the classpath (the `gameTestServer` task also prepares the world and EULA) |
 
 The game test is a non-shipped `@Mod` in `src/gameTest/java`; it is only on the classpath for `gameTestServer` (or
@@ -90,7 +90,10 @@ In `whitelist` item-filter mode, the three item/registry/ore lists become the on
 The buoyancy values are validated and clamped. `Floating Surface Offset` extends the liquid-detection box downward, so
 a positive value lets an item settle slightly above the surface while a negative value keeps it lower.
 
-### Commands
+### Config GUI and commands
+
+The config GUI has localized category/property labels and a **Reload** button that re-reads `FloatingItems.conf`
+without restarting. The same reload is available as an operator command.
 
 | Command | Permission | Purpose |
 |---|---|---|

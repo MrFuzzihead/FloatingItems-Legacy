@@ -2,6 +2,8 @@ package com.mrfuzzihead.floatingitems.mixins.early;
 
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.common.MinecraftForge;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -9,6 +11,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 import com.mrfuzzihead.floatingitems.FIConfig;
 import com.mrfuzzihead.floatingitems.FloatingItemPolicy;
+import com.mrfuzzihead.floatingitems.api.ItemFloatCheckEvent;
+import com.mrfuzzihead.floatingitems.api.ItemFloatTickEvent;
 
 @Mixin(EntityItem.class)
 public abstract class EntityItemMixin {
@@ -26,8 +30,19 @@ public abstract class EntityItemMixin {
     private boolean floatingItems$afterEntityItemUpdate(Item item, EntityItem entityItem) {
 
         boolean handledByItem = item.onEntityItemUpdate(entityItem);
-        if (!handledByItem && FloatingItemPolicy.shouldFloat(
-            entityItem.getEntityItem(),
+        if (handledByItem) {
+            return true;
+        }
+
+        ItemStack stack = entityItem.getEntityItem();
+        ItemFloatCheckEvent checkEvent = new ItemFloatCheckEvent(
+            entityItem,
+            stack,
+            entityItem.worldObj,
+            entityItem.boundingBox);
+        MinecraftForge.EVENT_BUS.post(checkEvent);
+        if (!checkEvent.isCanceled() && FloatingItemPolicy.shouldFloat(
+            stack,
             entityItem.worldObj,
             entityItem.boundingBox,
             FIConfig.blacklist,
@@ -35,7 +50,9 @@ public abstract class EntityItemMixin {
             FIConfig.filterMode,
             FIConfig.buoyancy)) {
             FloatingItemPolicy.applyBuoyancy(entityItem, FIConfig.buoyancy);
+            MinecraftForge.EVENT_BUS
+                .post(new ItemFloatTickEvent(entityItem, stack, entityItem.worldObj, entityItem.boundingBox));
         }
-        return handledByItem;
+        return false;
     }
 }

@@ -3,7 +3,9 @@ package com.mrfuzzihead.floatingitems;
 import java.util.Set;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
 
 import cpw.mods.fml.client.IModGuiFactory;
 import cpw.mods.fml.client.config.GuiConfig;
@@ -24,6 +26,30 @@ public class FIConfigGUI implements IModGuiFactory {
                 false,
                 false,
                 FILang.getTranslations("fi.configgui.title"));
+        }
+
+        @Override
+        public void initGui() {
+            super.initGui();
+            buttonList.add(
+                new GuiButton(
+                    2004,
+                    this.width / 2 - 50,
+                    this.height - 52,
+                    100,
+                    20,
+                    I18n.format("fi.configgui.reload")));
+        }
+
+        @Override
+        protected void actionPerformed(GuiButton button) {
+            super.actionPerformed(button);
+            if (button.id == 2004) {
+                FIConfig.reload();
+                this.buttonList.clear();
+                this.needsRefresh = true;
+                this.initGui();
+            }
         }
     }
 

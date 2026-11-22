@@ -6,6 +6,7 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.world.World;
 
 import com.mrfuzzihead.floatingitems.api.BlacklistSnapshot;
+import com.mrfuzzihead.floatingitems.api.IFloatingItem;
 
 /**
  * Pure(ish) floating rules shared by the mixin and the unit tests.
@@ -94,10 +95,19 @@ public final class FloatingItemPolicy {
             return false;
         }
 
-        ItemFilterMode mode = filterMode == null ? ItemFilterMode.BLACKLIST : filterMode;
-        boolean listed = itemFilter != null && itemFilter.isBlacklisted(stack);
-        if (mode == ItemFilterMode.WHITELIST ? !listed : listed) {
+        Boolean itemOverride = null;
+        if (stack.getItem() instanceof IFloatingItem) {
+            itemOverride = ((IFloatingItem) stack.getItem()).shouldFloat(stack, world);
+        }
+        if (Boolean.FALSE.equals(itemOverride)) {
             return false;
+        }
+        if (!Boolean.TRUE.equals(itemOverride)) {
+            ItemFilterMode mode = filterMode == null ? ItemFilterMode.BLACKLIST : filterMode;
+            boolean listed = itemFilter != null && itemFilter.isBlacklisted(stack);
+            if (mode == ItemFilterMode.WHITELIST ? !listed : listed) {
+                return false;
+            }
         }
 
         LiquidRules rules = liquidRules == null ? LiquidRules.defaults() : liquidRules;

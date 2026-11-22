@@ -21,6 +21,7 @@ import net.minecraft.world.World;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.mrfuzzihead.floatingitems.api.IFloatingItem;
 import com.mrfuzzihead.floatingitems.testutil.MinecraftTestBootstrap;
 
 public class FloatingItemPolicyTest {
@@ -138,6 +139,47 @@ public class FloatingItemPolicyTest {
     }
 
     @Test
+    public void itemOverrideCanOptIntoFloatingPastTheBlacklist() {
+        World world = mock(World.class);
+        Block water = mock(Block.class);
+        when(water.getMaterial()).thenReturn(Material.water);
+        when(world.getBlock(0, 0, 0)).thenReturn(water);
+        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);
+        Item item = new TestFloatingItem(Boolean.TRUE);
+        FIConfig.Blacklist blacklist = new FIConfig.Blacklist(
+            Collections.<FIConfig.FIConfigItem>emptyList(),
+            Collections.singleton(Item.getIdFromItem(item)),
+            Collections.<String>emptyList());
+
+        assertTrue(
+            FloatingItemPolicy.shouldFloat(
+                new ItemStack(item),
+                world,
+                box,
+                blacklist,
+                LiquidRules.defaults(),
+                ItemFilterMode.BLACKLIST));
+    }
+
+    @Test
+    public void itemOverrideCanForceSinking() {
+        World world = mock(World.class);
+        Block water = mock(Block.class);
+        when(water.getMaterial()).thenReturn(Material.water);
+        when(world.getBlock(0, 0, 0)).thenReturn(water);
+        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);
+
+        assertFalse(
+            FloatingItemPolicy.shouldFloat(
+                new ItemStack(new TestFloatingItem(Boolean.FALSE)),
+                world,
+                box,
+                FIConfig.Blacklist.empty(),
+                LiquidRules.defaults(),
+                ItemFilterMode.BLACKLIST));
+    }
+
+    @Test
     public void nullStacksAndNullItemsDoNotFloat() {
         World world = mock(World.class);
         AxisAlignedBB box = AxisAlignedBB.getBoundingBox(0.0D, 0.0D, 0.0D, 0.25D, 0.25D, 0.25D);
@@ -228,5 +270,19 @@ public class FloatingItemPolicyTest {
         FloatingItemPolicy.applyBuoyancy(entity);
 
         assertEquals(-0.4595D, entity.motionY, 1.0E-9D);
+    }
+
+    private static final class TestFloatingItem extends Item implements IFloatingItem {
+
+        private final Boolean override;
+
+        TestFloatingItem(Boolean override) {
+            this.override = override;
+        }
+
+        @Override
+        public Boolean shouldFloat(ItemStack stack, World world) {
+            return override;
+        }
     }
 }

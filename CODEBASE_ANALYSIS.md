@@ -33,9 +33,9 @@ Current verification baseline:
 
 ```text
 ./gradlew check                     PASS  (unit tests + Spotless + Checkstyle + JaCoCo floor + gameTest compile)
-./gradlew gameTestServer            PASS  26/26 checks, no known bugs remain
-Unit tests                          122 executed, no skipped tests
-JaCoCo (unit run)                   line 775/867 = 89.4%, branch 379/490 = 77.3%
+./gradlew gameTestServer            PASS  28/28 checks, no known bugs remain
+Unit tests                          126 executed, no skipped tests
+JaCoCo (unit run)                   line 817/915 = 89.3%, branch 385/498 = 77.3%
 ```
 
 The game test has no xfails and the unit suite has no skipped tests.
@@ -231,10 +231,10 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 | **F-05** | Tunable buoyancy: lift acceleration, horizontal damping, maximum upward speed and surface offset. | **Applied:** four `util` properties, validated/clamped by `BuoyancySettings`; defaults preserve the historical profile. The surface offset extends the liquid-detection box downward so an item can settle slightly above the surface. A “source blocks only” switch remains a deliberate deviation, not parity. |
 | **F-06** | Match modern water currents: items should be pushed by flowing water while floating, not just damped. | **Mostly present:** 1.7.10 `World.handleMaterialAcceleration` already applies the water current (`0.014`); the mod cancels gravity and adds only a slow lift. Downward flow therefore carries items down, matching modern Java. Add tests; change code only if a gap is found. |
 | **F-07** | Surface bobbing: a tiny idle oscillation or a stable resting height, instead of the current slow +0.0005 drift. | Cosmetic/behavioural parity with modern Minecraft. |
-| **F-08** | Public events: `ItemFloatCheckEvent` (cancelable) and `ItemFloatTickEvent` (post), plus `IFloatingItem` for item-specific opt-in/out. | Addon-friendly; lets other mods override the blacklist without touching `FIConfig`. |
+| **F-08** | Public events: `ItemFloatCheckEvent` (cancelable) and `ItemFloatTickEvent` (post), plus `IFloatingItem` for item-specific opt-in/out. | **Applied:** events are in the API package and posted on the Forge bus; `IFloatingItem` can force floating or sinking without changing the config. |
 | **F-09** | Per-player localisation for the update message; ship `.lang` resources and use the client locale where possible. | **Not planned:** the mod is server-side and the configured server language is the supported behaviour; B-25 is closed by design. |
 | **F-10** | Update checker: opt-in, async, cached, with a connect/read timeout, semantic version comparison, and a “show once per player” flag. | **Mostly applied:** async/timeouts, semver, build metadata, result object and show-once are done; result caching remains. |
-| **F-11** | Config GUI categories/lang keys, logical property order (`setCategoryPropertyOrder`), and a “reload” button/command. | Fixes D-06/B-20; makes the config usable on a live server. |
+| **F-11** | Config GUI categories/lang keys, logical property order (`setCategoryPropertyOrder`), and a “reload” button/command. | **Applied:** category and property language keys are set, the English labels are in `en_us.lang`, and the GUI has a Reload button backed by the same `FIConfig.reload()` service as the command. |
 | **F-12** | `/floatingitems status` and `/floatingitems reload` commands. | **Applied:** operator-level commands registered on server start. `status` reports filter counts, liquid policy and buoyancy values; `reload` re-reads the config and resolves entries. |
 | **F-13** | Debug counters (items evaluated, items floated, cache hits) behind a config flag. | Makes P-01 measurable in production. |
 | **F-14** | More game tests: partially submerged items, source vs flowing water (especially downward flow), chunk borders, unload/reload, item NBT, modded liquid, item merge/despawn, config reload. | **Applied:** the in-game suite now covers all of these except a live chunk unload/reload; NBT save/load covers persistence, while a real unload/reload is left as a follow-up because the forced chunk ticket and dedicated-server unload ordering make it flaky. |
@@ -246,10 +246,9 @@ The game test has no xfails. The unit suite no longer has any `@Ignore` markers 
 
 Ranked by user value, regression risk and dependencies. This is the order to work in; it is not a promise to implement every item.
 
-**F-14 is applied:** the in-game suite now has 26 checks, including the source-vs-downward-flowing-water control,
+**F-14 is applied:** the in-game suite now has 28 checks, including the source-vs-downward-flowing-water control,
 partial submersion, chunk borders, NBT, merge/despawn, config reload, an oil-like Forge fluid, whitelist mode and
-zeroed buoyancy. A
-live chunk unload/reload remains a follow-up because it is flaky on the forced-chunk dedicated server; the NBT round
+zeroed buoyancy and event-bus dispatch. A live chunk unload/reload remains a follow-up because it is flaky on the forced-chunk dedicated server; the NBT round
 trip covers the persistence data.
 
 **F-04 is applied:** the default `water_like` policy accepts vanilla water and water-named Forge fluids with water-like
@@ -267,21 +266,25 @@ an item can settle slightly above or below the surface; the defaults preserve th
 **F-12 is applied:** `/floatingitems status` reports the effective filter, liquid policy and buoyancy values.
 `/floatingitems reload` re-reads the config and re-resolves item entries. Both require permission level 2.
 
+**F-11 is applied:** config category/property language keys are set, English labels are in `en_us.lang`, and the config
+GUI has a Reload button that uses `FIConfig.reload()`. Property ordering and comments were already applied.
+
+**F-08 is applied:** `ItemFloatCheckEvent` (cancelable), `ItemFloatTickEvent` and `IFloatingItem` ship in the API
+package. The events are posted on the Forge bus; `IFloatingItem` can force floating or sinking without config changes.
+
 **P1 — next**
 
-1. **F-11** — config GUI categories/lang keys and a reload button. Client-only and larger; share the F-12 reload service rather than adding a second reload path.
-2. **F-08** — public float events and `IFloatingItem`. Higher addon value, but the event contract should be designed after F-02/F-04/F-05 stabilise the policy semantics.
-3. **F-06** — verify modern current behaviour and add the flowing-water test. The source-vs-downward-flow control is now in F-14; the remaining work is comparison against 1.13+ and any gap it exposes.
-4. **F-03** — per-dimension / per-biome / per-mod-id rules. High complexity and niche value; start with mod-id rules if it is pursued, then dimensions, then biomes.
-5. **F-13** — debug counters behind a config flag. Useful for production measurement but not worth adding before the policy work is stable.
-6. **F-15** — dedicated-server smoke boot without the game-test mod. Release/CI safety rather than gameplay value.
+1. **F-06** — verify modern current behaviour and add the flowing-water test. The source-vs-downward-flow control is now in F-14; the remaining work is comparison against 1.13+ and any gap it exposes.
+2. **F-03** — per-dimension / per-biome / per-mod-id rules. High complexity and niche value; start with mod-id rules if it is pursued, then dimensions, then biomes.
+3. **F-13** — debug counters behind a config flag. Useful for production measurement but not worth adding before the policy work is stable.
+4. **F-15** — dedicated-server smoke boot without the game-test mod. Release/CI safety rather than gameplay value.
 
 **P2 — defer / release hygiene**
 
-7. **F-07** — surface bobbing. Cosmetic; F-05 now provides the surface offset, but idle oscillation is still separate.
-8. **F-10** — update-check result caching. The check runs once at startup, so the benefit is small; optional.
-9. **F-16** — Modrinth/CurseForge relationships and dependency documentation. Low effort, but release metadata rather than code.
-10. **F-17** — modern-physics regression table and Forge/MCP compatibility notes. Documentation; do it as the physics work settles.
+5. **F-07** — surface bobbing. Cosmetic; F-05 now provides the surface offset, but idle oscillation is still separate.
+6. **F-10** — update-check result caching. The check runs once at startup, so the benefit is small; optional.
+7. **F-16** — Modrinth/CurseForge relationships and dependency documentation. Low effort, but release metadata rather than code.
+8. **F-17** — modern-physics regression table and Forge/MCP compatibility notes. Documentation; do it as the physics work settles.
 
 **Not planned:** F-09 (per-player update-message localisation).
 
@@ -318,7 +321,7 @@ an item can settle slightly above or below the surface; the defaults preserve th
 |---|---|
 | `addon.gradle.kts` | Applies JaCoCo, configures `Test` on a Java 8 toolchain, extends the test classpaths with `compileOnly` (Minecraft/Forge), creates `build/reports/jacoco/test`, enforces a line/branch floor, creates the `gameTest` source set, and registers `prepareGameTestServer`/`gameTestServer`/`jacocoGameTestReport`. |
 | `dependencies.gradle` | JUnit 4.13.2, Mockito 4.11.0, mockito-inline. Mockito 4 is the newest line that runs on Java 8; mockito-inline allows final Minecraft classes to be mocked. |
-| `src/test/java/...` | 13 test classes / 122 tests (no `@Ignore` markers). |
+| `src/test/java/...` | 14 test classes / 126 tests (no `@Ignore` markers). |
 | `src/gameTest/java/...` | A non-shipped `@Mod` (`floatingitemsgametest`) plus a 15-phase assertion suite. |
 | `.github/workflows/game-test.yml` | Installs Java 8 + 25, runs `./gradlew test gameTestServer`, checks the `FLOATINGITEMS_GAMETEST_OK` marker, uploads the server log and coverage. |
 | `README.md` | Testing commands and the remaining P3 marker policy. |
@@ -333,7 +336,8 @@ an item can settle slightly above or below the surface; the defaults preserve th
 | `FIReferenceTest` | Mod id/name/version injection, accepted MC range, Forge + UniMixins dependencies, config file/category names. |
 | `FloatingItemsMetadataTest` | Reads the `@Mod` annotation and the shipped `mcmod.info` back, checks the GUI factory class name, its `@SideOnly(CLIENT)` marker and the UniMixins requirement. |
 | `MixinsTest` | One early mixin named `EntityItemMixin`, phase EARLY, early config path. |
-| `FloatingItemPolicyTest` | Blacklist/whitelist item-filter behavior, null stack/item, contracted liquid-bounding-box lookup, null world/box, custom buoyancy damping/lift/maximum speed and surface-offset detection. |
+| `FloatingItemPolicyTest` | Blacklist/whitelist item-filter behavior, `IFloatingItem` opt-in/out overrides, null stack/item, contracted liquid-bounding-box lookup, null world/box, custom buoyancy damping/lift/maximum speed and surface-offset detection. |
+| `FloatingItemEventTest` | Check-event cancellation/context and tick-event context/immutability. |
 | `BuoyancySettingsTest` | Historical defaults, lower/upper clamping and non-finite value fallbacks. |
 | `FloatingItemsCommandTest` | Status output for filter/liquid/buoyancy, reload from disk, usage text and command metadata. |
 | `LiquidRulesTest` | Default `water_like` policy, vanilla water, oil-like and hot/heavy/thick fluids, allow/deny precedence, legacy `material_water`, Forge `IFluidBlock` detection and contracted world scanning. |
@@ -355,7 +359,7 @@ fifteen phases:
 
 | Phase | Assertions |
 |---|---|
-| 0 | item rises in still water; item falls in air; item in lava does not get water buoyancy; negative-coordinate item floats (B-08); `onEntityItemUpdate` is called once per tick (B-06); null-item blacklist entries are skipped |
+| 0 | item rises in still water; item falls in air; item in lava does not get water buoyancy; negative-coordinate item floats (B-08); `onEntityItemUpdate` is called once per tick (B-06); null-item blacklist entries are skipped; the check and tick events are posted |
 | 1 | per-metadata blacklist suppresses the lift |
 | 2 | registry blacklist suppresses the lift |
 | 3 | registry blacklist is not shadowed by a per-metadata entry with a different meta (B-07) |
@@ -386,9 +390,9 @@ Run: `./gradlew gameTestServer`. The task writes `run/server/eula.txt` and a det
 - In-game report: `build/reports/jacoco/gameTest/html`, generated after `gameTestServer` via
   `jacocoGameTestReport`. The JaCoCo agent is run with `classdumpdir=build/jacoco/gameTestClasses`, so the report
   reads exactly the bytes the agent instrumented. It is not merged into the unit report because a Forge 1.7.10
-  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 402/799 lines (50.3%)
-  and 144/460 branches (31.3%)
-- Regression floor: 65% line / 70% branch. The measured unit baseline is 89.4% line / 77.3% branch. The floor is a
+  dev launch rewrites classes through `LaunchClassLoader`; the latest in-game report is 434/841 lines (51.6%)
+  and 151/470 branches (32.1%)
+- Regression floor: 65% line / 70% branch. The measured unit baseline is 89.3% line / 77.3% branch. The floor is a
   guard, not a target; the mixin remains largely uncovered, and the update handler is covered by
   its opt-out/result/HTTP branches but not by a live network check.
 
@@ -434,7 +438,7 @@ The P0 batch below is implemented and covered by the tests in §9; P1 and P2 are
 
 14. D-03/D-09/D-11/D-12/D-15 cleanup done; D-08 intentionally kept; D-02/D-04/D-05 retained as deprecated public API shims.
 15. R-01/R-02/R-03/R-04/R-05/R-06/R-07/R-08/R-09/R-11/R-12/R-13/R-14/R-15 are applied.
-16. F-01, F-02, F-04, F-05, F-12, F-14 and the API part of F-08 are applied. F-03…F-17 remain; the ordered backlog is in §7.1 (F-11 → F-08 → F-06 → F-03, then the defer items). F-09 is not planned.
+16. F-01, F-02, F-04, F-05, F-08, F-11, F-12 and F-14 are applied. F-03, F-06, F-07, F-09, F-10, F-13, F-15, F-16 and F-17 remain; the ordered backlog is in §7.1 (F-06 → F-03 → F-13 → F-15, then the defer items). F-09 is not planned.
 
 ---
 
@@ -494,15 +498,15 @@ All paths are under `build/rfg/minecraft-src/java` (RFG-decompiled 1.7.10 source
 
 | Measurement | Value |
 |---|---|
-| Unit tests | 122 run, 0 skipped, 0 failures |
+| Unit tests | 126 run, 0 skipped, 0 failures |
 | Game-test phases | 15 phases × 120 ticks, plus the synchronous config-bus check |
-| Game-test assertions | 26 checks; no known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
+| Game-test assertions | 28 checks; no known bugs remain; `FLOATINGITEMS_GAMETEST_OK` written |
 | Game-test run time | ~100 s on the development machine (including Forge startup) |
-| JaCoCo unit line | 775/867 = 89.4% |
-| JaCoCo unit branch | 379/490 = 77.3% |
-| JaCoCo unit instruction | 3,211/3,543 = 90.6% |
+| JaCoCo unit line | 817/915 = 89.3% |
+| JaCoCo unit branch | 385/498 = 77.3% |
+| JaCoCo unit instruction | 3,348/3,713 = 90.2% |
 | JaCoCo floor | 65% line / 70% branch |
-| JaCoCo game-test run | 402/799 lines = 50.3%, 144/460 branches = 31.3% (short physics-only run) |
+| JaCoCo game-test run | 434/841 lines = 51.6%, 151/470 branches = 32.1% (short physics-only run) |
 | Test JVM | Java 8 toolchain (Temurin 8.0.432) |
 
 The game test prints per-phase Y values and the observed `onEntityItemUpdate` count. In the final run:

@@ -135,7 +135,15 @@ public class FIConfigTest {
         List<String> names = new java.util.ArrayList<String>();
         for (IConfigElement element : elements) {
             names.add(element.getName());
+            assertNotNull(element.getLanguageKey());
+            assertTrue(
+                element.getLanguageKey()
+                    .startsWith("fi.config."));
         }
+        assertEquals(
+            "fi.config.category.util",
+            FIConfig.config.getCategory(FIReference.CONFIG_CATEGORY_UTIL)
+                .getLanguagekey());
         assertEquals(
             Arrays.asList(
                 ITEM_FILTER_MODE,

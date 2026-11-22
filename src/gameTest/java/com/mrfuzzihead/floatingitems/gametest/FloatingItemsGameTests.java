@@ -20,6 +20,7 @@ import net.minecraft.world.ChunkCoordIntPair;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.ForgeChunkManager;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidStack;
@@ -30,9 +31,12 @@ import com.mrfuzzihead.floatingitems.BuoyancySettings;
 import com.mrfuzzihead.floatingitems.FIConfig;
 import com.mrfuzzihead.floatingitems.FIReference;
 import com.mrfuzzihead.floatingitems.ItemFilterMode;
+import com.mrfuzzihead.floatingitems.api.ItemFloatCheckEvent;
+import com.mrfuzzihead.floatingitems.api.ItemFloatTickEvent;
 
 import cpw.mods.fml.client.event.ConfigChangedEvent;
 import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.registry.GameRegistry;
 
 /**
@@ -49,7 +53,7 @@ import cpw.mods.fml.common.registry.GameRegistry;
  * {@code CODEBASE_ANALYSIS.md}.
  * </p>
  */
-final class FloatingItemsGameTests {
+public final class FloatingItemsGameTests {
 
     private static final int FLOOR_Y = 100;
     private static final int WATER_TOP_Y = 103;
@@ -75,7 +79,24 @@ final class FloatingItemsGameTests {
     private static final String FAIL = "[FI-GAMETEST] FAIL ";
 
     private static final AtomicInteger COUNTING_CALLS = new AtomicInteger();
+    private static final AtomicInteger FLOAT_CHECKS = new AtomicInteger();
+    private static final AtomicInteger FLOAT_TICKS = new AtomicInteger();
     private static final Item COUNTING_ITEM = new CountingItem();
+    private static final Object EVENT_LISTENER = new GameTestEventListener();
+
+    public static final class GameTestEventListener {
+
+        @SubscribeEvent
+        public void onFloatCheck(ItemFloatCheckEvent event) {
+            FLOAT_CHECKS.incrementAndGet();
+        }
+
+        @SubscribeEvent
+        public void onFloatTick(ItemFloatTickEvent event) {
+            FLOAT_TICKS.incrementAndGet();
+        }
+    }
+
     private static final Fluid MODDED_LIQUID_FLUID = new Fluid("floatingitems_test_oil").setDensity(1200)
         .setTemperature(300)
         .setViscosity(1500);
@@ -142,6 +163,7 @@ final class FloatingItemsGameTests {
             return;
         }
         world = overworld;
+        MinecraftForge.EVENT_BUS.register(EVENT_LISTENER);
         resetItemBlacklistConfig();
         keepArenaLoaded();
         buildArenas();
@@ -322,6 +344,8 @@ final class FloatingItemsGameTests {
                     Collections.<Integer>emptySet(),
                     Collections.<String>emptyList());
                 COUNTING_CALLS.set(0);
+                FLOAT_CHECKS.set(0);
+                FLOAT_TICKS.set(0);
                 waterItem = spawn(0.5D, WATER_START_Y, 0.5D, new ItemStack(Items.stick), 0.2D);
                 waterStartY = waterItem.posY;
                 airItem = spawn(AIR_X + 0.5D, 110.0D, 0.5D, new ItemStack(Items.stick), 0.0D);
@@ -516,6 +540,8 @@ final class FloatingItemsGameTests {
                 check(
                     "onEntityItemUpdate is called once per tick (B-06)",
                     calls >= PHASE_TICKS - 1 && calls <= PHASE_TICKS);
+                check("the float check event is posted on the Forge bus", FLOAT_CHECKS.get() > 0);
+                check("the float tick event is posted on the Forge bus", FLOAT_TICKS.get() > 0);
                 break;
 
             case 1:
@@ -705,6 +731,7 @@ final class FloatingItemsGameTests {
         }
         finished = true;
         running = false;
+        MinecraftForge.EVENT_BUS.unregister(EVENT_LISTENER);
         clearItems();
         try {
             resetItemBlacklistConfig();
