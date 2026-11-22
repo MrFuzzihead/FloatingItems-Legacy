@@ -54,9 +54,7 @@ jobs:
           ! grep -hq "FLOATINGITEMS_GAMETEST_FAILED" run/server/logs/*.log
 
       - name: Run the dedicated-server smoke test
-        # Reuse the dependencies downloaded by the game-test step. Offline avoids a dead
-        # GTNH well-known repository timing out while Gradle serializes the configuration cache.
-        run: ./gradlew smokeTestServer --offline --stacktrace
+        run: ./gradlew smokeTestServer --stacktrace
 
       - name: Check the smoke-test marker
         # FML routes mod stdout to fml-server-latest.log, not vanilla latest.log.
